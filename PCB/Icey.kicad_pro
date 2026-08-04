@@ -58,40 +58,7 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [
-        [
-          "clearance|182387500|100875000|d42f0007-cb8b-48d8-8215-10da6211e3f9|f6e1ddc8-7b6c-4612-b9c2-6399b6ab7223",
-          ""
-        ],
-        [
-          "clearance|182387500|106725000|b8a8f63c-33af-4acb-b6f1-b8452eee967b|0334e9af-1804-4c4c-92b2-992bd7fd3a87",
-          ""
-        ],
-        [
-          "clearance|182387500|90395000|1ccc5cd7-afd7-47db-9a5a-40539d39253d|ca9a0ca7-56f5-4793-bffe-43b06afd6e4d",
-          ""
-        ],
-        [
-          "clearance|182387500|96245000|c05070e1-c697-4d6f-8c6a-5a2b96d4d3ae|3bb0d812-2fef-49f6-a172-0281366ebeec",
-          ""
-        ],
-        [
-          "hole_clearance|182387500|101125000|0723460a-ecaf-41fc-92e0-83acae916d3c|f6e1ddc8-7b6c-4612-b9c2-6399b6ab7223",
-          ""
-        ],
-        [
-          "hole_clearance|182387500|106475000|e2f2f5fc-917a-47b5-a0cf-40435fb2c59f|0334e9af-1804-4c4c-92b2-992bd7fd3a87",
-          ""
-        ],
-        [
-          "hole_clearance|182387500|90645000|8535328c-b0ed-4e15-96e1-5f8f36fbbc26|ca9a0ca7-56f5-4793-bffe-43b06afd6e4d",
-          ""
-        ],
-        [
-          "hole_clearance|182387500|95995000|a34cf896-82e7-418b-80e6-94e87ab6ecbe|3bb0d812-2fef-49f6-a172-0281366ebeec",
-          ""
-        ]
-      ],
+      "drc_exclusions": [],
       "meta": {
         "version": 2
       },
@@ -138,7 +105,7 @@
         "silk_overlap": "ignore",
         "skew_out_of_range": "error",
         "solder_mask_bridge": "error",
-        "starved_thermal": "ignore",
+        "starved_thermal": "warning",
         "text_height": "warning",
         "text_on_edge_cuts": "error",
         "text_thickness": "warning",
@@ -222,6 +189,7 @@
       "track_widths": [
         0.0,
         0.1,
+        0.15,
         0.3,
         0.4
       ],
@@ -684,7 +652,7 @@
     },
     "net_format_name": "",
     "page_layout_descr_file": "",
-    "plot_directory": "",
+    "plot_directory": "../assets/",
     "space_save_all_events": true,
     "spice_current_sheet_as_root": false,
     "spice_external_command": "spice \"%I\"",
