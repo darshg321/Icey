@@ -1,6 +1,6 @@
 # Icey
 
-an Uno shaped FPGA ICE40 UP5K board for learning!
+an Uno-sized FPGA iCE40-UP5K board for learning!
 
 it features:
 - integrated VGA connector with display out
@@ -37,7 +37,7 @@ it features:
 | 9 | `IOT_49a` | `43` |
 | 10 | GND | — |
 | 11 | +3V3 | — |
-| 12 | VBUS (5 V) | — |
+| 12 | VBUS (+5V) | — |
 
 ### Configuration SPI
 
@@ -50,7 +50,11 @@ it features:
 
 # BOM
 
-| Item     | Qty | Price (USD)  |   |   |
-|----------|-----|--------------|---|---|
-| PCB      | 5   | 7.00          |   |   |
-| Assembly | 2   | 106.51       |   |   |
+| Item     | Qty | Price (USD)  |
+|----------|-----|--------------|
+| PCB      | 5   | 7.00         |
+| Assembly | 2   | 106.51       |
+
+
+### Contact
+email me at darshg321 (@) gmail.com :)
