@@ -8166,7 +8166,7 @@
 		(uuid "00188da0-cda3-4bc8-98ce-b70b08907fa1")
 	)
 	(junction
-		(at 257.81 121.92)
+		(at 259.08 121.92)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "02a4a23e-7473-408d-9525-ea2b0dd13796")
@@ -8778,7 +8778,7 @@
 		(uuid "f48cc0ec-abba-432f-a909-f3838ad8e9e4")
 	)
 	(junction
-		(at 266.7 114.3)
+		(at 267.97 114.3)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f69a0b93-d566-409c-9657-3243198a781e")
@@ -9533,7 +9533,7 @@
 	)
 	(wire
 		(pts
-			(xy 265.43 114.3) (xy 266.7 114.3)
+			(xy 266.7 114.3) (xy 267.97 114.3)
 		)
 		(stroke
 			(width 0)
@@ -10923,7 +10923,7 @@
 	)
 	(wire
 		(pts
-			(xy 257.81 121.92) (xy 266.7 121.92)
+			(xy 259.08 121.92) (xy 267.97 121.92)
 		)
 		(stroke
 			(width 0)
@@ -12223,7 +12223,7 @@
 	)
 	(wire
 		(pts
-			(xy 247.65 114.3) (xy 250.19 114.3)
+			(xy 248.92 114.3) (xy 251.46 114.3)
 		)
 		(stroke
 			(width 0)
@@ -15194,7 +15194,7 @@
 	)
 	(symbol
 		(lib_id "power:VBUS")
-		(at 247.65 114.3 0)
+		(at 248.92 114.3 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -15202,7 +15202,7 @@
 		(dnp no)
 		(uuid "29fd9f30-3091-42da-a418-09e2471672b1")
 		(property "Reference" "#PWR066"
-			(at 247.65 118.11 0)
+			(at 248.92 118.11 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15211,7 +15211,7 @@
 			)
 		)
 		(property "Value" "VBUS"
-			(at 248.412 110.744 0)
+			(at 249.682 110.744 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15219,7 +15219,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 247.65 114.3 0)
+			(at 248.92 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15228,7 +15228,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 247.65 114.3 0)
+			(at 248.92 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -15237,7 +15237,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"VBUS\""
-			(at 247.65 114.3 0)
+			(at 248.92 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16925,7 +16925,7 @@
 	)
 	(symbol
 		(lib_id "power:+1V2")
-		(at 266.7 114.3 0)
+		(at 267.97 114.3 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -16933,7 +16933,7 @@
 		(dnp no)
 		(uuid "55412b46-deb9-4f05-be0e-e22f320523ed")
 		(property "Reference" "#PWR012"
-			(at 266.7 118.11 0)
+			(at 267.97 118.11 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16942,7 +16942,7 @@
 			)
 		)
 		(property "Value" "+1V2"
-			(at 266.7 110.744 0)
+			(at 267.97 110.744 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16950,7 +16950,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 266.7 114.3 0)
+			(at 267.97 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16959,7 +16959,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 266.7 114.3 0)
+			(at 267.97 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16968,7 +16968,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+1V2\""
-			(at 266.7 114.3 0)
+			(at 267.97 114.3 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17762,7 +17762,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 257.81 121.92 0)
+		(at 259.08 121.92 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -17771,7 +17771,7 @@
 		(fields_autoplaced yes)
 		(uuid "65c2cf2c-92d3-4b3a-9ec0-7f0550a3f98d")
 		(property "Reference" "#PWR027"
-			(at 257.81 128.27 0)
+			(at 259.08 128.27 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17780,7 +17780,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 257.81 127 0)
+			(at 259.08 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17788,7 +17788,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 257.81 121.92 0)
+			(at 259.08 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17797,7 +17797,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 257.81 121.92 0)
+			(at 259.08 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -17806,7 +17806,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 257.81 121.92 0)
+			(at 259.08 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24677,7 +24677,7 @@
 	)
 	(symbol
 		(lib_id "Device:C")
-		(at 266.7 118.11 0)
+		(at 267.97 118.11 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -24685,7 +24685,7 @@
 		(dnp no)
 		(uuid "e165d1c8-2dda-45df-abd4-3b6132642df5")
 		(property "Reference" "C29"
-			(at 270.256 116.84 0)
+			(at 271.526 116.84 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24694,7 +24694,7 @@
 			)
 		)
 		(property "Value" "1uF"
-			(at 270.256 119.38 0)
+			(at 271.526 119.38 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24703,7 +24703,7 @@
 			)
 		)
 		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
-			(at 267.6652 121.92 0)
+			(at 268.9352 121.92 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24712,7 +24712,7 @@
 			)
 		)
 		(property "Datasheet" "~"
-			(at 266.7 118.11 0)
+			(at 267.97 118.11 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -24721,7 +24721,7 @@
 			)
 		)
 		(property "Description" "Unpolarized capacitor"
-			(at 266.7 118.11 0)
+			(at 267.97 118.11 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26118,7 +26118,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:AMS1117-1.2_C347218")
-		(at 257.81 115.57 0)
+		(at 259.08 115.57 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -26126,7 +26126,7 @@
 		(dnp no)
 		(uuid "f1a501e4-2322-421d-b9b4-425529b6ccb1")
 		(property "Reference" "U1"
-			(at 257.81 107.696 0)
+			(at 259.08 107.696 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26134,7 +26134,7 @@
 			)
 		)
 		(property "Value" "AMS1117-1.2"
-			(at 257.81 110.236 0)
+			(at 259.08 110.236 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26142,7 +26142,7 @@
 			)
 		)
 		(property "Footprint" "Package_TO_SOT_SMD:SOT-223-3_TabPin2"
-			(at 257.81 125.73 0)
+			(at 259.08 125.73 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26151,7 +26151,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Others_Youtai-Semiconductor-Co-Ltd-AMS1117-1-2_C347218.html"
-			(at 257.81 128.27 0)
+			(at 259.08 128.27 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26160,7 +26160,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 257.81 115.57 0)
+			(at 259.08 115.57 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26169,7 +26169,7 @@
 			)
 		)
 		(property "Manufacturer" "UMW(友台半导体)"
-			(at 257.81 130.81 0)
+			(at 259.08 130.81 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26178,7 +26178,7 @@
 			)
 		)
 		(property "MPN" "AMS1117-1.2"
-			(at 257.81 133.35 0)
+			(at 259.08 133.35 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26187,7 +26187,7 @@
 			)
 		)
 		(property "LCSC Part" "C347218"
-			(at 257.81 135.89 0)
+			(at 259.08 135.89 0)
 			(effects
 				(font
 					(size 1.27 1.27)

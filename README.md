@@ -22,6 +22,32 @@ it features:
 
 ![schematic](assets/SCHEMATIC.png)
 
+## Headers
+
+| Pin | Net | FPGA |
+|---|---|---|
+| 1 | `IOT_42b` | `31` |
+| 2 | `IOT_43a` | `32` |
+| 3 | `IOT_44b` | `34` |
+| 4 | `IOT_46b_G0` | `35` |
+| 5 | `IOT_48b` | `36` |
+| 6 | `IOT_45a_G1` | `37` |
+| 7 | `IOT_50b` | `38` |
+| 8 | `IOT_51a` | `42` |
+| 9 | `IOT_49a` | `43` |
+| 10 | GND | — |
+| 11 | +3V3 | — |
+| 12 | VBUS (5 V) | — |
+
+### Configuration SPI
+
+| Pin | Net | | Pin | Net |
+|---|---|---|---|---|
+| 1 | `CS` | | 5 | `FLASH_WP` |
+| 2 | `SCK` | | 6 | `FLASH_HOLD` |
+| 3 | `MOSI` | | 7 | **+3V3** |
+| 4 | `MISO` | | 8 | **GND** |
+
 # BOM
 
 | Item     | Qty | Price (USD)  |   |   |
