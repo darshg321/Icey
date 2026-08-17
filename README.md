@@ -14,7 +14,7 @@ it features:
 
 # PCB
 
-![3d pcb](assets/3DPCB.png)
+![3d pcb](assets/RENDER.png)
 
 ![pcb](assets/PCB.png)
 
@@ -58,3 +58,5 @@ it features:
 
 ### Contact
 email me at darshg321 (@) gmail.com :)
+
+### this project is open source certified at https://certification.oshwa.org/ca000078.html
