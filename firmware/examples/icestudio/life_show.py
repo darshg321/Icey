@@ -8,6 +8,7 @@ A keyboard plugged into the board's USB host port steers the show.
 
     life_show.py           play once, then wait for Enter
     life_show.py --loop    kiosk mode: repeat forever (Ctrl-C to quit)
+    life_show.py --typing  straight to the Monkeytype-style typing test
 """
 import argparse
 import os
@@ -22,6 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from life import CLOCK, N, Life, make_grid, step  # noqa: E402
 from hwtest import (SD_CS, USB_CS, USB_RST, Bridge, Fat32, Keyboard,  # noqa: E402
                     sd_init)
+from typing_test import TypingTest  # noqa: E402
 
 # ------------------------------------------------------------- styling -----
 ESC = '\x1b['
@@ -288,6 +290,7 @@ class Show:
                  k('space', 'pause') + '   ' + k('r', 'new soup'),
                  k('g', 'glider gun') + ' ' + k('a', 'acorn'),
                  k('+/-', 'speed') + '      ' + k('n', 'next act'),
+                 k('t', 'typing test (keys via the FPGA)'),
                  k('esc', 'quit') + '       ' + fg(*MUTED) + 'SW2 = new soup']
         if self.sd_patterns:
             lines.insert(4, k('s', f'next pattern from the microSD ({len(self.sd_patterns)})'))
@@ -413,6 +416,14 @@ class Show:
                     self.sd_idx += 1
                     self.last_input = f"microSD pattern '{name}'"
                     load(g); set_rate(rate)
+                elif e == 't':
+                    TypingTest(self).run()
+                    self.rgb(rgb)
+                    s.clear(); s.header(); s.frame_box(title)
+                    load(make_grid('random', np.random.default_rng())); set_rate(rate)
+                    paused = False
+                    g0 = last = None
+                    last = (None, None)
                 elif e in ('+', '='):
                     rate = min(rate * 1.5, 360); set_rate(rate)
                 elif e == '-':
@@ -583,13 +594,16 @@ class Show:
         s.flush()
 
 
-def run(loop):
+def run(loop, typing=False):
     life = Life()
     try:
         with Screen() as scr:
             show = Show(life, scr)
             try:
                 show.board_check()
+                if typing:
+                    TypingTest(show).run()
+                    raise Quit
                 while True:
                     fpga, n, ok = None, 0, False
                     for act in ('soup', 'gun', 'sd', 'leash', 'proof'):
@@ -642,4 +656,6 @@ if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--loop', action='store_true', help='repeat forever (kiosk mode)')
-    run(ap.parse_args().loop)
+    ap.add_argument('--typing', action='store_true', help='go straight to the typing test')
+    a = ap.parse_args()
+    run(a.loop, a.typing)

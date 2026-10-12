@@ -317,7 +317,14 @@ and plays a full-screen show (`life_show.py`):
 
 **Controls** (keyboard plugged into the *board's* USB-C port): `space` pause,
 `r` new soup, `g`/`a`/`p` glider gun / acorn / R-pentomino, `s` next SD pattern,
-`+`/`-` speed, `n` next act, `esc` quit. **SW2** = new soup. The RGB LED shows
+`+`/`-` speed, `n` next act, `t` typing test, `esc` quit. **SW2** = new soup.
+
+**Typing test** (`t` in the show, or `./firmware/life-demo.sh --typing`): a
+Monkeytype-style test (15/30/60 s, WPM, raw, accuracy, per-second chart) where
+every keystroke comes from the keyboard on the *board*, through the MAX3421E
+USB host and the FPGA. The RGB LED is green while you're on track and red on a
+mistake, SW2 restarts, and the results show how many Life generations the FPGA
+ran in the background while you typed. The RGB LED shows
 the state: blue = watching, red = flat out, green = proof passed.
 
 The design is the Life engine below plus the `hwtest` I/O bridge, behind a
