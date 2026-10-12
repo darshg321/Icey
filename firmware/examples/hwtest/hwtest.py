@@ -7,6 +7,7 @@
     hwtest.py led3       blink LED3 through the FTDI (channel B GPIO)
     hwtest.py sd         microSD: init, card ID, capacity, sector 0 (read-only)
     hwtest.py usb        USB host: detect + enumerate a keyboard, then echo keys
+    hwtest.py sdwrite    write test on ONE unused sector (backed up + restored)
     hwtest.py sw3        press the reset button (do this last: wipes the design)
 """
 import sys
@@ -341,6 +342,75 @@ class Fat32:
                 if len(data) >= min(entry['size'], maxbytes):
                     return bytes(data[:min(entry['size'], maxbytes)])
         return bytes(data[:entry['size']])
+
+
+def sd_write_block(s, lba, data):
+    """CMD24 single-block write. Returns None on success, else an error string."""
+    br = s.b
+    a = lba if s.hc else lba * 512
+    br.cs(SD_CS, True)
+    f = bytes([0x40 | 24, a >> 24 & 255, a >> 16 & 255, a >> 8 & 255, a & 255, 0x01])
+    r = br.xfer(f + b'\xff' * 8)[6:]
+    r1 = next((v for v in r if v != 0xFF), None)
+    if r1 != 0:
+        s.end()
+        return f'CMD24 rejected (R1={r1!r})'
+    resp = br.xfer(b'\xff\xfe' + bytes(data) + b'\xff\xff' + b'\xff' * 4)[-4:]
+    tok = next((v for v in resp if v != 0xFF), None)
+    if tok is None or tok & 0x1F != 0x05:
+        s.end()
+        return f'data not accepted (token {tok!r})'
+    t = time.time()
+    while br.xfer(b'\xff' * 16)[-1] != 0xFF:      # card holds MISO low while busy
+        if time.time() - t > 1:
+            s.end()
+            return 'card stayed busy'
+    s.end()
+    return None
+
+
+def test_sdwrite(br):
+    import os
+    import random
+    print('microSD write test (one unused sector, backed up and restored)')
+    s, card = sd_init(br)
+    if not s:
+        bad(f'card init failed: {card}')
+        return
+    mbr = s.data(17, 0, 512)
+    starts = [int.from_bytes(mbr[454 + 16 * k:458 + 16 * k], 'little')
+              for k in range(4) if mbr[450 + 16 * k]]
+    first = min(starts) if starts else 0
+    if mbr[510:512] != b'\x55\xaa' or first < 8:
+        bad(f'no safe gap before the first partition (starts at {first}); not writing')
+        return
+    lba = first // 2                              # middle of the gap, outside any partition
+    orig = s.data(17, lba if s.hc else lba * 512, 512)
+    if orig is None:
+        bad('could not read the sector to back it up')
+        return
+    backup = os.path.expanduser(f'~/icey-sd-backup-sector{lba}.bin')
+    open(backup, 'wb').write(orig)
+    ok(f'sector {lba} (gap before partition at {first}) backed up to {backup}')
+    info(f'original content: {"all zeros" if not any(orig) else "has data"}')
+    pattern = bytes(random.getrandbits(8) for _ in range(512))
+    t = time.time()
+    err = sd_write_block(s, lba, pattern)
+    dt = time.time() - t
+    if err:
+        bad(f'write failed: {err}')
+        return
+    back = s.data(17, lba if s.hc else lba * 512, 512)
+    (ok if back == pattern else bad)(f'wrote 512 random bytes in {dt * 1e3:.0f} ms, read back: '
+                                     + ('identical' if back == pattern else 'MISMATCH'))
+    err = sd_write_block(s, lba, orig)
+    back = s.data(17, lba if s.hc else lba * 512, 512)
+    restored = err is None and back == orig
+    (ok if restored else bad)('original sector restored and verified' if restored else
+                              f'RESTORE FAILED ({err}); the original is saved in {backup}')
+    if restored:
+        os.remove(backup)
+    br.speed(400e3)
 
 
 def test_sd(br):
@@ -678,7 +748,7 @@ def test_usb(br):
 
 def main():
     tests = {'bus': test_bus, 'button': test_button, 'rgb': test_rgb, 'led3': test_led3,
-             'sd': test_sd, 'usb': test_usb, 'sw3': test_sw3}
+             'sd': test_sd, 'sdwrite': test_sdwrite, 'usb': test_usb, 'sw3': test_sw3}
     if len(sys.argv) != 2 or sys.argv[1] not in tests:
         sys.exit(__doc__)
     br = Bridge()

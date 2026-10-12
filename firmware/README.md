@@ -18,6 +18,7 @@ firmware/
 │   ├── blink/           LED1 blink + RGB cycle
 │   ├── uart_flash/      UART echo, flash JEDEC ID, button (+ test.py)
 │   ├── hwtest/          hardware-test bridge + hwtest.py (SD, USB host, buttons, LEDs)
+│   ├── flashtest/       single vs quad SPI reads of the flash from the FPGA
 │   └── icestudio/blink.ice
 └── icestudio/           submodule: Icestudio fork with an "Icey" board
 ```
@@ -61,10 +62,10 @@ actually observed with the board plugged in (2026-10-12).
 | | Feature (design) | Evidence on hardware |
 |---|---|---|
 | [x] | UART FPGA ⇄ PC (FTDI channel B) | 115200: 508 bytes, 0 errors. 3 Mbaud: Life demo moves ~2 KB snapshots continuously |
-| [~] | QSPI flash from FPGA user logic | Standard SPI read (JEDEC ID) works; quad mode (WP/HOLD as IO2/IO3) untested |
+| [x] | QSPI flash from FPGA user logic | `examples/flashtest`: quad read (0x6B, IO0–IO3) matches single read on all 106,496 bytes of the stored bitstream; every IO line toggles; 5.97 vs 1.50 MB/s at 12 MHz SCK (4.0x). QE was already set at the factory |
 | [ ] | VGA output (3/3/2-bit DAC + sync) | Not seen on a monitor. VGA demo simulated (exact 800×525 timing, clean blanking); real pixel clock measured (31.32 kHz / 59.65 Hz) |
 | [x] | USB host (MAX3421E + USB-C peripheral port) | Rev 0x13, crystal OK; a Keychron C3 Pro (full-speed) enumerated (VID 3434/PID 0430, strings read), configured as a boot keyboard, and typed keys arrived correctly on the PC |
-| [x] | microSD card (SPI, shared bus) | 62.5 GB SDHC card: init in 0.29 s, CID/CSD read, sector 0 read at 6 MHz (FAT32 partition table). **Read only**: writes not tested |
+| [x] | microSD card (SPI, shared bus) | 62.5 GB SDHC card: init in 0.29 s, CID/CSD read, sector reads at 6 MHz, FAT32 file listing. **Write**: one unused sector (gap before the partition) written with random data, read back identical, original restored and verified (`hwtest.py sdwrite`) |
 
 ### Software / tooling
 
@@ -130,13 +131,16 @@ from the PC. These produced the checklist evidence above.
 cd firmware/examples/hwtest && make prog
 PY=~/.local/share/icey/venv/bin/python
 $PY hwtest.py bus      # MAX3421E alive + SPI bus (no equipment)
-$PY hwtest.py sd       # microSD: init, card ID, capacity, sector 0 (read-only)
+$PY hwtest.py sd       # microSD: init, card ID, capacity, sector 0, file list (read-only)
+$PY hwtest.py sdwrite  # write test on one unused sector (backed up, restored, verified)
 $PY hwtest.py usb      # USB keyboard: enumerate, then echo what you type (Esc ends)
 $PY hwtest.py button   # SW2
 $PY hwtest.py rgb      # lights RGB0/1/2 in turn
 $PY hwtest.py led3     # blinks LED3 via FTDI GPIO
 $PY hwtest.py sw3      # press reset (run last: wipes the design)
 ```
+
+Flash quad mode has its own design: `cd examples/flashtest && make prog && $PY flashtest.py`.
 
 The USB test is a minimal USB host stack (enumeration, control transfers,
 boot-protocol keyboard) running in Python, talking to the MAX3421E through the
