@@ -6,7 +6,7 @@ USB, plus what was learned bringing up the real hardware (Oct 2026).
 ```
 firmware/
 ├── README.md            this file
-├── life-demo.sh         one-command Game of Life demo
+├── life-demo.sh         one-command showcase demo (Life + USB host + microSD)
 ├── icey.pcf             full pin constraints for the board
 ├── tools/
 │   ├── setup.sh         one-time host setup (venv + udev rule)
@@ -74,7 +74,9 @@ actually observed with the board plugged in (2026-10-12).
 | [x] | `examples/blink`, `examples/uart_flash` (`make prog`) | Built and run on the board |
 | [x] | Icestudio fork, *Icey* board, build | User built `blink.ice` in the GUI |
 | [~] | Icestudio Upload button | Exact upload command chain run from a shell and works; not clicked in the GUI |
-| [x] | `examples/icestudio/life.ice` + `life-demo.sh` | Runs end to end; 178k gen/s; 19,889–20,041 generations bit-exact vs NumPy |
+| [x] | `examples/icestudio/life.ice` + `life.py` | 178k gen/s; 19,889–20,041 generations bit-exact vs NumPy |
+| [x] | `examples/icestudio/showcase.ice` + `life-demo.sh` | Runs end to end: board check (USB host, keyboard, SD file listing, RGB); keyboard on the board steers the show (pause, speed, patterns, next act all seen working; quit checked with a scripted Esc); SW2 = new soup; bit-exact proof |
+| [x] | `examples/hwtest` (`hwtest.py`) | All 7 tests run on the board (see Peripherals) |
 | [~] | `examples/icestudio/vga_demo.ice` | Builds and loads; needs a monitor (see VGA above) |
 
 **Practical upshot:** the board works, but your design must be reloaded over USB
@@ -290,19 +292,37 @@ Then choose **Select → Board → UP5K → Icey**, open
 board clock, drop in a Verilog code block with `SB_HFOSC` (the example does this
 and also exports `clk_out`).
 
-### Game of Life (`examples/icestudio/life.ice` + `life.py`): no monitor needed
-
-**One command, from a fresh clone:**
+### Showcase (`examples/icestudio/showcase.ice`): the one-command demo
 
 ```sh
 ./firmware/life-demo.sh          # add --loop for kiosk mode
 ```
 
-It installs the tools on first run, builds `life.ice` (using `tools/ice2v.py`,
-no Icestudio needed; cached after the first build), loads it, and plays a
-full-screen show: random soup → glider gun → a flat-out benchmark against your
-PC → a cell-for-cell proof. Use a truecolor terminal. At ≥172×70 it switches to
-one block per cell, otherwise braille.
+It installs the tools on first run, builds `showcase.ice` (using
+`tools/ice2v.py`, no Icestudio needed; cached after the first build), loads it,
+and plays a full-screen show (`life_show.py`):
+
+1. **Board check**: USB host controller, the keyboard plugged into the board
+   (maker/product read over USB), the microSD card (size, model, and its FAT32
+   file list), an RGB sweep. All of it is reached through the FPGA.
+2. **Primordial soup** and **glider gun**, cells coloured by age.
+3. **From your microSD**: plays any `.rle` Life patterns in the card's root
+   (skipped if there are none).
+4. **Off the leash**: flat-out benchmark vs NumPy on the PC.
+5. **Proof**: ~20,000 generations checked cell for cell.
+
+**Controls** (keyboard plugged into the *board's* USB-C port): `space` pause,
+`r` new soup, `g`/`a`/`p` glider gun / acorn / R-pentomino, `s` next SD pattern,
+`+`/`-` speed, `n` next act, `esc` quit. **SW2** = new soup. The RGB LED shows
+the state: blue = watching, red = flat out, green = proof passed.
+
+The design is the Life engine below plus the `hwtest` I/O bridge, behind a
+command router that shares the one 3 Mbaud link: `S L V N` go to Life, `X Y C D I`
+to the bridge. 58% of the logic cells, 9/30 block RAMs, timing 34 MHz vs 24 MHz.
+Use a truecolor terminal; at ≥172×70 the grid is one block per cell,
+otherwise braille.
+
+### Game of Life (`examples/icestudio/life.ice` + `life.py`): no monitor needed
 
 
 Conway's Life on a 128x128 wrap-around grid. The grid streams back to the PC
