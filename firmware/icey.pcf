@@ -1,0 +1,56 @@
+# Icey (rev 1) - iCE40UP5K-SG48 pin constraints
+# Every line uses -nowarn, so a design only needs to declare the ports it uses.
+# There is NO external clock: use SB_HFOSC (see examples/), or feed one into P4.
+
+# ---- LEDs / button -------------------------------------------------------
+set_io -nowarn LED        9    # LED1, active high
+set_io -nowarn BTN        6    # SW2, active low (10k pull-up)
+set_io -nowarn RGB0       39   # LED4 RGB, open-drain, active low (anode on 5V)
+set_io -nowarn RGB1       40   #   drive with SB_RGBA_DRV or a plain output
+set_io -nowarn RGB2       41
+
+# ---- UART to PC (FT2232H channel B, /dev/ttyUSB1) -------------------------
+set_io -nowarn RX         46   # PC -> FPGA  (net PROG_TX)
+set_io -nowarn TX         47   # FPGA -> PC  (net PROG_RX)
+
+# ---- VGA (resistor DAC: 3-bit R/G, 2-bit B) -------------------------------
+set_io -nowarn HSYNC      26
+set_io -nowarn VSYNC      28
+set_io -nowarn VGA_R[2]   21   # 510R (MSB)
+set_io -nowarn VGA_R[1]   13   # 1k
+set_io -nowarn VGA_R[0]   20   # 2k   (LSB)
+set_io -nowarn VGA_G[2]   19   # 510R (MSB)
+set_io -nowarn VGA_G[1]   18   # 1k
+set_io -nowarn VGA_G[0]   25   # 2k   (LSB)
+set_io -nowarn VGA_B[1]   23   # 430R (MSB)
+set_io -nowarn VGA_B[0]   27   # 820R (LSB)
+
+# ---- Shared SPI bus: micro SD card + MAX3421E USB host ---------------------
+set_io -nowarn SD_SCK     44
+set_io -nowarn SD_MOSI    48
+set_io -nowarn SD_MISO    45
+set_io -nowarn SD_CS      10
+set_io -nowarn USB_CS     2    # MAX3421E SS#
+set_io -nowarn USB_RST    3    # MAX3421E RES# (active low)
+set_io -nowarn USB_INT    4    # MAX3421E INT
+
+# ---- SPI flash (W25Q128JV) from user logic --------------------------------
+# NOTE: rev-1 board crosses the data lines relative to the FPGA's SPI_SO/SPI_SI
+# names. From user logic these assignments are correct (verified on hardware).
+set_io -nowarn FLASH_SCK  15
+set_io -nowarn FLASH_CS   16
+set_io -nowarn FLASH_MOSI 17   # FPGA -> flash DI
+set_io -nowarn FLASH_MISO 14   # flash DO -> FPGA
+set_io -nowarn FLASH_WP   12   # IO2 for quad mode
+set_io -nowarn FLASH_HOLD 11   # IO3 for quad mode
+
+# ---- Header J1 (pin 10 GND, 11 +3V3, 12 VBUS) -----------------------------
+set_io -nowarn P1         31
+set_io -nowarn P2         32
+set_io -nowarn P3         34
+set_io -nowarn P4         35   # global buffer G0 - external clock input
+set_io -nowarn P5         36
+set_io -nowarn P6         37   # global buffer G1
+set_io -nowarn P7         38
+set_io -nowarn P8         42
+set_io -nowarn P9         43

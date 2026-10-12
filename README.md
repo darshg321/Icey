@@ -12,6 +12,16 @@ it features:
 - LEDs
 - buttons
 
+# Firmware
+
+Tools, examples and bring-up notes for the real board are in [`firmware/`](firmware/README.md),
+including a checklist of which features have been tested on hardware. Quick demo:
+
+```sh
+git clone --recurse-submodules https://github.com/darshg321/Icey && cd Icey
+./firmware/life-demo.sh
+```
+
 # PCB
 
 ![3d pcb](assets/RENDER.png)

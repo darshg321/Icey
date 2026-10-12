@@ -1,0 +1,4 @@
+[submodule "firmware/icestudio"]
+	path = firmware/icestudio
+	url = https://github.com/darshg321/icestudio.git
+	branch = icey

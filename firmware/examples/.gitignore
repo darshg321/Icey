@@ -1,0 +1,6 @@
+# build outputs
+*.json
+*.asc
+*.bin
+!examples/icestudio/*.ice
+ice-build/
