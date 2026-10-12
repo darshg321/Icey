@@ -5,9 +5,9 @@
 # ---- LEDs / button -------------------------------------------------------
 set_io -nowarn LED        9    # LED1, active high
 set_io -nowarn BTN        6    # SW2, active low (10k pull-up)
-set_io -nowarn RGB0       39   # LED4 RGB, open-drain, active low (anode on 5V)
-set_io -nowarn RGB1       40   #   drive with SB_RGBA_DRV or a plain output
-set_io -nowarn RGB2       41
+set_io -nowarn RGB0       39   # LED4 red,   open-drain, active low (anode on 5V)
+set_io -nowarn RGB1       40   # LED4 blue   (drive with SB_RGBA_DRV or a plain output)
+set_io -nowarn RGB2       41   # LED4 green
 
 # ---- UART to PC (FT2232H channel B, /dev/ttyUSB1) -------------------------
 set_io -nowarn RX         46   # PC -> FPGA  (net PROG_TX)

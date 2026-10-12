@@ -2,6 +2,10 @@
 
 an Uno-sized FPGA iCE40-UP5K board for learning!
 
+<video src="https://github.com/darshg321/Icey/raw/main/assets/DEMO.mp4" controls width="100%"></video>
+
+*conway's game of life running on icey, 128 cells computed every clock! ([video](assets/DEMO.mp4))*
+
 it features:
 - integrated VGA connector with display out
 - integrated USB peripheral support (such as keyboards!)
@@ -14,8 +18,7 @@ it features:
 
 # Firmware
 
-Tools, examples and bring-up notes for the real board are in [`firmware/`](firmware/README.md),
-including a checklist of which features have been tested on hardware. Quick demo:
+tools, examples and bring-up notes are in [`firmware/`](firmware/README.md). to run the demo:
 
 ```sh
 git clone --recurse-submodules https://github.com/darshg321/Icey && cd Icey

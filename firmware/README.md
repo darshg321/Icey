@@ -17,6 +17,7 @@ firmware/
 │   ├── common.mk        shared Makefile rules
 │   ├── blink/           LED1 blink + RGB cycle
 │   ├── uart_flash/      UART echo, flash JEDEC ID, button (+ test.py)
+│   ├── hwtest/          hardware-test bridge + hwtest.py (SD, USB host, buttons, LEDs)
 │   └── icestudio/blink.ice
 └── icestudio/           submodule: Icestudio fork with an "Icey" board
 ```
@@ -38,7 +39,7 @@ actually observed with the board plugged in (2026-10-12).
 | ✗ | Stock `iceprog` / openFPGALoader | FTDI pinout differs (CS=ADBUS3, CRESET=4, CDONE=5), see note 1 |
 | [x] | Program SPI flash from the PC | JEDEC `ef 40 18`; 104 KB write + verify OK |
 | ✗ | **FPGA boots from flash at power-up** | Never configures: SPI data lines crossed, see note 2 |
-| [ ] | Reset button SW3 | Not pressed. CRESET pulsed from the FTDI works (and, given ✗ above, leaves the FPGA blank) |
+| [x] | Reset button SW3 | Pressed: CDONE 1→0 and LED2 lit (FPGA then stays blank, see ✗ above) |
 | [ ] | Config SPI header J2 | Same bus the FTDI uses (which works); header itself untested |
 
 ### FPGA, clocks, I/O
@@ -49,10 +50,10 @@ actually observed with the board plugged in (2026-10-12).
 | [x] | Internal 48 MHz oscillator (no crystal on board) | Runs UART at 115200 and 3 Mbaud error-free |
 | [x] | PLL (from internal oscillator) | Measured 25.055 MHz output (target 25.125) via UART timing |
 | [x] | LED1 (pin 9) | Blink seen by user |
-| [x] | RGB LED4 (pins 39–41) | Colour cycle seen by user. Which pin is which colour not yet recorded |
+| [x] | RGB LED4 (pins 39–41) | Each lit alone: **RGB0 = red, RGB1 = blue, RGB2 = green** |
 | [x] | LED2 "not configured" (CDONE) | Goes off when configured, seen by user |
-| [ ] | LED3 (FTDI BCBUS3) | Untested (needs FTDI GPIO or EEPROM config) |
-| [~] | Button SW2 (pin 6) | Reads `1` (released) correctly; a **press** has not been tested |
+| [x] | LED3 (FTDI BCBUS3) | Blinks when BCBUS3 is driven as GPIO (`hwtest.py led3`); active low |
+| [x] | Button SW2 (pin 6) | Presses and releases detected; LED1 lit while held |
 | [ ] | Header J1 (9 GPIO, 3V3, VBUS) | Untested |
 
 ### Peripherals
@@ -62,8 +63,8 @@ actually observed with the board plugged in (2026-10-12).
 | [x] | UART FPGA ⇄ PC (FTDI channel B) | 115200: 508 bytes, 0 errors. 3 Mbaud: Life demo moves ~2 KB snapshots continuously |
 | [~] | QSPI flash from FPGA user logic | Standard SPI read (JEDEC ID) works; quad mode (WP/HOLD as IO2/IO3) untested |
 | [ ] | VGA output (3/3/2-bit DAC + sync) | Not seen on a monitor. VGA demo simulated (exact 800×525 timing, clean blanking); real pixel clock measured (31.32 kHz / 59.65 Hz) |
-| [ ] | USB host (MAX3421E + USB-C peripheral port) | Untested |
-| [ ] | microSD card (SPI) | Untested |
+| [x] | USB host (MAX3421E + USB-C peripheral port) | Rev 0x13, crystal OK; a Keychron C3 Pro (full-speed) enumerated (VID 3434/PID 0430, strings read), configured as a boot keyboard, and typed keys arrived correctly on the PC |
+| [x] | microSD card (SPI, shared bus) | 62.5 GB SDHC card: init in 0.29 s, CID/CSD read, sector 0 read at 6 MHz (FAT32 partition table). **Read only**: writes not tested |
 
 ### Software / tooling
 
@@ -117,6 +118,27 @@ see below.
 
 The venv lives at `~/.local/share/icey/venv` (override with `ICEY_VENV`). The
 Icestudio board looks for it there.
+
+## Hardware tests (`examples/hwtest`)
+
+A UART→SPI bridge bitstream plus a Python script that tests the peripherals
+from the PC. These produced the checklist evidence above.
+
+```sh
+cd firmware/examples/hwtest && make prog
+PY=~/.local/share/icey/venv/bin/python
+$PY hwtest.py bus      # MAX3421E alive + SPI bus (no equipment)
+$PY hwtest.py sd       # microSD: init, card ID, capacity, sector 0 (read-only)
+$PY hwtest.py usb      # USB keyboard: enumerate, then echo what you type (Esc ends)
+$PY hwtest.py button   # SW2
+$PY hwtest.py rgb      # lights RGB0/1/2 in turn
+$PY hwtest.py led3     # blinks LED3 via FTDI GPIO
+$PY hwtest.py sw3      # press reset (run last: wipes the design)
+```
+
+The USB test is a minimal USB host stack (enumeration, control transfers,
+boot-protocol keyboard) running in Python, talking to the MAX3421E through the
+FPGA. Bridge protocol: see the header of `top.v`.
 
 ## iceyprog.py
 
@@ -209,15 +231,18 @@ sees the bitstream; its first byte is `0xFF`, which the flash ignores.
 - **LED1** (pin 9) is active high.
 - **LED2** is wired from +3V3 to CDONE, so it's **on while the FPGA is NOT
   configured**.
-- **LED3** hangs off FTDI BCBUS3; it's unused without an FTDI EEPROM.
+- **LED3** hangs off FTDI BCBUS3 (active low). The FTDI has no EEPROM, so it
+  doesn't act as a TX/RX activity LED; it lights only when BCBUS3 is driven as GPIO.
 - **RGB LED4**: common anode on **VBUS (5 V)**, cathodes on the open-drain RGB
   pins 39/40/41 (active low). Use `SB_RGBA_DRV` (current-limited); a plain output
-  also builds and works open-drain. RGB0..2 → colour mapping not yet confirmed.
+  also builds and works open-drain. **RGB0 (39) = red, RGB1 (40) = blue,
+  RGB2 (41) = green.**
 - **SW2** (pin 6) is active low with a 10k pull-up. **SW3** pulls CRESET_B low,
   which reloads from flash, which fails, so the FPGA is left blank.
 - **SD card and MAX3421E share one SPI bus** (SCK 44, MOSI 48, MISO 45). Separate
   CS: SD 10, USB 2. The MAX3421E powers up in half-duplex SPI mode: set
-  `FDUPSPI` in PINCTL first so it tri-states MISO properly. It has its own 12 MHz
+  `FDUPSPI` in PINCTL first so it tri-states MISO properly. Host-only registers
+  (e.g. PERADDR) read back 0 until MODE.HOST is set. It has its own 12 MHz
   crystal; RES# on pin 3, INT on pin 4. The host port gets 5 V via fuse F1 and
   advertises as a source (56k Rp on CC).
 - **VGA DAC**: R/G are 3-bit (510/1k/2k), B is 2-bit (430/820). Full scale is

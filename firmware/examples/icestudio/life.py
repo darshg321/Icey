@@ -39,6 +39,7 @@ PATTERNS = {
 class Life:
     def __init__(self):
         self.p = serial_for_url(URL, baudrate=3_000_000, timeout=1)
+        self.p.udev.set_latency_timer(1)     # default 16 ms slows every round trip
         self.p.reset_input_buffer()
 
     def close(self):
