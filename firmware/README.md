@@ -74,7 +74,7 @@ actually observed with the board plugged in (2026-10-12).
 | [x] | `tools/setup.sh` (venv + udev) | Run on the dev machine; udev rule needs a replug |
 | [x] | `examples/blink`, `examples/uart_flash` (`make prog`) | Built and run on the board |
 | [x] | Icestudio fork, *Icey* board, build | User built `blink.ice` in the GUI |
-| [~] | Icestudio Upload button | Exact upload command chain run from a shell and works; not clicked in the GUI |
+| [x] | Icestudio Upload button | Clicked in the GUI: `blink.ice` built and loaded onto the board, LEDs confirmed by user |
 | [x] | `examples/icestudio/life.ice` + `life.py` | 178k gen/s; 19,889–20,041 generations bit-exact vs NumPy |
 | [x] | `examples/icestudio/showcase.ice` + `life-demo.sh` | Runs end to end: board check (USB host, keyboard, SD file listing, RGB); keyboard on the board steers the show (pause, speed, patterns, next act all seen working; quit checked with a scripted Esc); SW2 = new soup; bit-exact proof |
 | [x] | `examples/hwtest` (`hwtest.py`) | All 7 tests run on the board (see Peripherals) |
