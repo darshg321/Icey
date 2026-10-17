@@ -4,12 +4,19 @@
 #
 #   ./firmware/life-demo.sh            play once
 #   ./firmware/life-demo.sh --loop     kiosk mode (repeat until Ctrl-C)
+#   ./firmware/life-demo.sh --vga      also show it on a VGA monitor (showcase_vga.ice)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 VENV="${ICEY_VENV:-$HOME/.local/share/icey/venv}"
 PY="$VENV/bin/python"
 ICE="$HERE/examples/icestudio/showcase.ice"
 BUILD="$HERE/build/showcase"
+for a in "$@"; do
+    if [ "$a" = --vga ]; then
+        ICE="$HERE/examples/icestudio/showcase_vga.ice"
+        BUILD="$HERE/build/showcase_vga"
+    fi
+done
 
 c() { printf '\033[1;38;2;90;200;255m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31m!!\033[0m %s\n' "$*" >&2; exit 1; }
@@ -25,9 +32,9 @@ if command -v lsusb >/dev/null && ! lsusb -d 0403:6010 >/dev/null; then
     die "Icey not found. Plug in the programming USB-C (USB2) and try again."
 fi
 
-# 3. build (cached until showcase.ice changes)
+# 3. build (cached until the .ice changes)
 if [ ! -f "$BUILD/life.bin" ] || [ "$ICE" -nt "$BUILD/life.bin" ]; then
-    c "Building showcase.ice for the FPGA (first time takes ~30 s)"
+    c "Building $(basename "$ICE") for the FPGA (first time takes ~30 s)"
     "$PY" "$HERE/tools/ice2v.py" "$ICE" "$BUILD"
     (cd "$BUILD" &&
         "$VENV/bin/yowasp-yosys" -q -p 'synth_ice40 -top main -json life.json' main.v &&

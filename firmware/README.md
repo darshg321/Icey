@@ -6,7 +6,7 @@ USB, plus what was learned bringing up the real hardware (Oct 2026).
 ```
 firmware/
 ├── README.md            this file
-├── life-demo.sh         one-command showcase demo (Life + USB host + microSD)
+├── life-demo.sh         one-command showcase demo (Life + USB host + microSD; --vga adds a monitor)
 ├── icey.pcf             full pin constraints for the board
 ├── tools/
 │   ├── setup.sh         one-time host setup (venv + udev rule)
@@ -79,6 +79,7 @@ actually observed with the board plugged in (2026-10-12).
 | [x] | `examples/icestudio/showcase.ice` + `life-demo.sh` | Runs end to end: board check (USB host, keyboard, SD file listing, RGB); keyboard on the board steers the show (pause, speed, patterns, next act all seen working; quit checked with a scripted Esc); SW2 = new soup; bit-exact proof |
 | [x] | `examples/hwtest` (`hwtest.py`) | All 7 tests run on the board (see Peripherals) |
 | [~] | `examples/icestudio/vga_demo.ice` | Builds and loads; needs a monitor (see VGA above) |
+| [~] | `examples/icestudio/showcase_vga.ice` + `life-demo.sh --vga` | Loads and runs the show on the board: Life bit-exact (18,061 gens), 178,766 gen/s, SD/USB host/RGB board check, VGA scene command acks. VGA frames checked in simulation only; needs a monitor |
 
 **Practical upshot:** the board works, but your design must be reloaded over USB
 after every power-up (flash boot is broken on rev 1).
@@ -332,6 +333,52 @@ command router that shares the one 3 Mbaud link: `S L V N` go to Life, `X Y C D 
 to the bridge. 58% of the logic cells, 9/30 block RAMs, timing 34 MHz vs 24 MHz.
 Use a truecolor terminal; at ≥172×70 the grid is one block per cell,
 otherwise braille.
+
+### Showcase + VGA (`examples/icestudio/showcase_vga.ice`)
+
+```sh
+./firmware/life-demo.sh --vga    # same show, plus a VGA monitor on the board
+```
+
+The same showcase (everything above still works) plus the VGA port: the
+**live Life grid** in the middle of the screen (3×3 pixels per cell, 384×384)
+while the FPGA cycles through colour schemes and the racing-the-beam effects
+from `vga_demo.ice` on its own, about 70 s per loop:
+
+| # | Scene | # | Scene |
+|---|---|---|---|
+| 1 | Life, rainbow cells drifting across the board | 5 | Life over the interference |
+| 2 | plasma | 6 | interference |
+| 3 | Life over the plasma | 7 | all 256 colours the DAC can make |
+| 4 | XOR fractal | 8 | Life, rainbow cells over the XOR fractal |
+
+The show's `v` key steps through the scenes one at a time, then back to cycling.
+
+| Life, rainbow | Life over plasma | Life over interference | All 256 colours |
+|---|---|---|---|
+| ![](examples/icestudio/showcase_vga_preview/1_life_rainbow.png) | ![](examples/icestudio/showcase_vga_preview/2_life_plasma.png) | ![](examples/icestudio/showcase_vga_preview/3_life_interference.png) | ![](examples/icestudio/showcase_vga_preview/4_256_colours.png) |
+
+How it fits together:
+- Two clock domains: the Life engine, UART and I/O bridge stay at 24 MHz
+  (HFOSC / 2); the PLL makes the 25.125 MHz pixel clock from that.
+- Block RAM has one read port, and the engine uses it. So every row the engine
+  (or a PC `L` load) writes is also written into a 2 KB display copy. Its write
+  side runs at 24 MHz and its read side at 25 MHz. The beam fetches one row per
+  scan line during blanking, so the engine never waits for the display.
+- Command `G s` on the I/O bridge: scene 0–7 to hold one, 255 to cycle
+  (the power-up default) → `k`.
+- Fits at 95% of the logic cells, 17/30 block RAMs, 4/8 DSPs. The interference
+  effect's 4 multipliers are `SB_MAC16` blocks instantiated directly, because
+  apio (Icestudio) doesn't synthesise with `-dsp` and the LUT multipliers would
+  need 106%. Timing: 29 MHz vs 24, 31.5 MHz vs 25.1.
+
+Verified: the VGA half (timing, 4 effects, Life layer, director, compositor)
+simulated with Yosys CXXRTL against a monitor model that syncs on HSYNC/VSYNC.
+Every one of the 16,384 cells lands on its 3×3 block, nothing is drawn during
+blanking in any of the 8 scenes, and the director's schedule was checked over
+6,000 frames. The previews above are those frames. On the board: the show runs
+end to end with `--vga`, Life is bit-exact, and the speed is unchanged.
+**Not yet seen on a real monitor.**
 
 ### Game of Life (`examples/icestudio/life.ice` + `life.py`): no monitor needed
 
