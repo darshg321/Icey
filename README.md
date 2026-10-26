@@ -16,6 +16,14 @@ it features:
 - LEDs
 - buttons
 
+# Learn
+
+A project-based Verilog course built around this board, with a Verilog compiler, simulator and the iCE40 toolchain running in your browser: [`learn/`](learn/README.md). It goes from lighting an LED to building a CPU and an Apple I.
+
+```sh
+cd learn && npm install && npm run dev
+```
+
 # Firmware
 
 tools, examples and bring-up notes are in [`firmware/`](firmware/README.md). to run the demo:
