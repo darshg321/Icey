@@ -19,16 +19,60 @@ firmware/
 │   ├── uart_flash/      UART echo, flash JEDEC ID, button (+ test.py)
 │   ├── hwtest/          hardware-test bridge + hwtest.py (SD, USB host, buttons, LEDs)
 │   ├── flashtest/       single vs quad SPI reads of the flash from the FPGA
-│   └── icestudio/blink.ice
+│   └── icestudio/       blink, life, showcase, showcase_vga, vga_demo (.ice) + PC scripts
 └── icestudio/           submodule: Icestudio fork with an "Icey" board
 ```
+
+## Firmware loaded on the board
+
+Every design below has run on the real board. "Loaded" means into FPGA SRAM over
+USB, because rev 1 can't boot from flash, so a design is gone after power-off.
+
+How each result was verified:
+- **Seen**: a person watched it on the board or monitor.
+- **Script**: a PC script checked the board's replies automatically.
+
+### What each design tests
+
+| Design | Tests | Result on the board | Verified by |
+|---|---|---|---|
+| `examples/blink` | Loading over USB, HFOSC, LED1, RGB LED, LED2 | Works: LED1 blinks, RGB cycles, LED2 goes off | Seen |
+| `examples/icestudio/blink.ice` | Icestudio build and Upload button | Works from the GUI: built, loaded, LEDs correct | Seen |
+| `examples/uart_flash` | UART at 115200, reading the flash ID from the FPGA, SW2 | Works: echo with 0 errors in 508 bytes, ID `ef 40 18`, button reads correctly | Script |
+| `examples/hwtest` | 3 Mbaud SPI bridge: MAX3421E, SD read and write, USB keyboard, SW2, SW3, RGB colours, LED3 | Works: all 8 `hwtest.py` tests, see Peripherals below | Script and seen |
+| `examples/flashtest` | Single and quad SPI flash reads from the FPGA | Works: quad matches single on all 106,496 bytes, 4.0x faster | Script |
+| `examples/icestudio/life.ice` | Life engine, block RAM, 3 Mbaud streaming | Works: 178,540 gen/s, 19,889 generations bit-exact vs NumPy | Script |
+| `examples/icestudio/showcase.ice` (`life-demo.sh`) | Life plus USB host, keyboard, SD and RGB in one design | Works: board check, keyboard controls, SW2, typing test, SD patterns and bit-exact proof | Script and seen |
+| `examples/icestudio/vga_demo.ice` | VGA DAC and sync, PLL, SW2 | Works on a monitor: plasma, XOR fractal and interference, switched with SW2 | Seen |
+| `examples/icestudio/showcase_vga.ice` (`life-demo.sh --vga`) | Everything in the showcase plus VGA, with two clock domains | Works on a monitor: live Life grid and cycling scenes, with the USB keyboard, SW2 and microSD also working. Life bit-exact (18,052 generations on 2026-11-05) | Seen and script |
+| `verify/icey` in the separate `icey-vga-chip` repo | The chip project's VGA design running on real pins | Works: sync timing, blanking and pixel CRCs for 17 frames match the reference model (2026-10-26) | Script |
+
+The monitor tested is an LG Flatron W2242PM-BS with a standard VGA cable.
+
+### What doesn't work
+
+| Problem | Cause | Workaround |
+|---|---|---|
+| FPGA doesn't boot from flash at power-up | Rev 1 hardware: SPI data lines crossed, see note 2 | Reload over USB after every power-up |
+| Stock `iceprog` and openFPGALoader can't program the board | FTDI pinout differs, see note 1 | Use `tools/iceyprog.py` |
+
+### Not tested on the board
+
+These have no recorded result, so they aren't known to be broken:
+
+- **`v` scene key** on `showcase_vga.ice`. The VGA scene command behind it was
+  checked by script.
+- **Icestudio Upload** with anything other than `blink.ice`.
+- **`learn/` site**: WebUSB upload and the WebSerial terminal.
+- **Headers** J1 (GPIO) and J2 (config SPI).
+- **USB host** with anything other than one full-speed keyboard (Keychron C3 Pro).
 
 ## Feature checklist: designed vs tested on the real board
 
 Legend: **[x]** tested on the physical board · **[~]** partly tested ·
 **[ ]** designed in, not yet tested on hardware · **✗** tested and doesn't work.
 "Design" is what the schematic/netlist says should work; "Evidence" is what was
-actually observed with the board plugged in (2026-10-12).
+actually observed with the board plugged in (2026-10-12 unless dated otherwise).
 
 ### Power, USB, programming
 
@@ -63,7 +107,7 @@ actually observed with the board plugged in (2026-10-12).
 |---|---|---|
 | [x] | UART FPGA ⇄ PC (FTDI channel B) | 115200: 508 bytes, 0 errors. 3 Mbaud: Life demo moves ~2 KB snapshots continuously |
 | [x] | QSPI flash from FPGA user logic | `examples/flashtest`: quad read (0x6B, IO0–IO3) matches single read on all 106,496 bytes of the stored bitstream; every IO line toggles; 5.97 vs 1.50 MB/s at 12 MHz SCK (4.0x). QE was already set at the factory |
-| [ ] | VGA output (3/3/2-bit DAC + sync) | Not seen on a monitor. VGA demo simulated (exact 800×525 timing, clean blanking); real pixel clock measured (31.32 kHz / 59.65 Hz) |
+| [x] | VGA output (3/3/2-bit DAC + sync) | Works on a real monitor, an LG Flatron W2242PM-BS over a standard VGA cable (2026-11-05): `vga_demo.ice` and `showcase_vga.ice` both displayed correctly, confirmed by eye. 640×480 from the internal oscillator, no external clock; pixel clock measured at 31.32 kHz / 59.65 Hz |
 | [x] | USB host (MAX3421E + USB-C peripheral port) | Rev 0x13, crystal OK; a Keychron C3 Pro (full-speed) enumerated (VID 3434/PID 0430, strings read), configured as a boot keyboard, and typed keys arrived correctly on the PC |
 | [x] | microSD card (SPI, shared bus) | 62.5 GB SDHC card: init in 0.29 s, CID/CSD read, sector reads at 6 MHz, FAT32 file listing. **Write**: one unused sector (gap before the partition) written with random data, read back identical, original restored and verified (`hwtest.py sdwrite`) |
 
@@ -76,10 +120,10 @@ actually observed with the board plugged in (2026-10-12).
 | [x] | Icestudio fork, *Icey* board, build | User built `blink.ice` in the GUI |
 | [x] | Icestudio Upload button | Clicked in the GUI: `blink.ice` built and loaded onto the board, LEDs confirmed by user |
 | [x] | `examples/icestudio/life.ice` + `life.py` | 178k gen/s; 19,889–20,041 generations bit-exact vs NumPy |
-| [x] | `examples/icestudio/showcase.ice` + `life-demo.sh` | Runs end to end: board check (USB host, keyboard, SD file listing, RGB); keyboard on the board steers the show (pause, speed, patterns, next act all seen working; quit checked with a scripted Esc); SW2 = new soup; bit-exact proof |
-| [x] | `examples/hwtest` (`hwtest.py`) | All 7 tests run on the board (see Peripherals) |
-| [~] | `examples/icestudio/vga_demo.ice` | Builds and loads; needs a monitor (see VGA above) |
-| [~] | `examples/icestudio/showcase_vga.ice` + `life-demo.sh --vga` | Loads and runs the show on the board: Life bit-exact (18,061 gens), 178,766 gen/s, SD/USB host/RGB board check, VGA scene command acks. VGA frames checked in simulation only; needs a monitor |
+| [x] | `examples/icestudio/showcase.ice` + `life-demo.sh` | Runs end to end: board check (USB host, keyboard, SD file listing, RGB); keyboard on the board steers the show (pause, speed, patterns, next act all seen working; quit checked with a scripted Esc); SW2 = new soup; typing test and SD pattern act confirmed by user (2026-11-05); bit-exact proof |
+| [x] | `examples/hwtest` (`hwtest.py`) | All 8 tests run on the board (see Peripherals) |
+| [x] | `examples/icestudio/vga_demo.ice` | Seen on a real monitor: live plasma, XOR fractal and interference effects, one at a time, with SW2 switching between them |
+| [x] | `examples/icestudio/showcase_vga.ice` + `life-demo.sh --vga` | Seen on a real monitor: the live Life grid and the 8 scenes the FPGA cycles through. The show ran alongside it: Life bit-exact (18,052 gens on 2026-11-05), 178,766 gen/s, SD/USB host/RGB board check, VGA scene command acks |
 
 **Practical upshot:** the board works, but your design must be reloaded over USB
 after every power-up (flash boot is broken on rev 1).
@@ -233,8 +277,9 @@ sees the bitstream; its first byte is `0xFF`, which the flash ignores.
 
 - **No external FPGA clock.** Use `SB_HFOSC` (48 MHz, divisible down to 12 MHz;
   all examples use 12 MHz). It's roughly ±10% accurate: 115200 baud UART worked
-  fine. Fussy VGA monitors may want a real oscillator into **header P4 (FPGA 35,
-  global buffer G0)**.
+  fine, and an LG Flatron W2242PM-BS displays the HFOSC-derived pixel clock correctly.
+  A fussier monitor may want a real oscillator into **header P4 (FPGA 35, global
+  buffer G0)**.
 - **LED1** (pin 9) is active high.
 - **LED2** is wired from +3V3 to CDONE, so it's **on while the FPGA is NOT
   configured**.
@@ -378,7 +423,14 @@ Every one of the 16,384 cells lands on its 3×3 block, nothing is drawn during
 blanking in any of the 8 scenes, and the director's schedule was checked over
 6,000 frames. The previews above are those frames. On the board: the show runs
 end to end with `--vga`, Life is bit-exact, and the speed is unchanged.
-**Not yet seen on a real monitor.**
+
+**Works on a real monitor**: an LG Flatron W2242PM-BS over a standard VGA cable
+(2026-11-05). The screen shows the live Life grid in
+the middle (384×384) and moves through the 8 scenes above on its own: Life in
+rainbow colours, the plasma, XOR and interference effects with and without Life
+on top, and the 256-colour chart. The FPGA drives this itself, so the scenes keep
+cycling after the terminal show exits, until the board is powered off or
+reloaded.
 
 ### Game of Life (`examples/icestudio/life.ice` + `life.py`): no monitor needed
 
@@ -438,12 +490,15 @@ Verified:
   MHz vs 25.125 MHz needed.
 - On the board: measured the HFOSC→PLL pixel clock at **25.055 MHz** (hsync
   31.32 kHz, vsync 59.65 Hz; VGA spec 31.47 kHz / 59.94 Hz).
-- **Not yet seen on a real monitor.**
+- **Works on a real monitor**: an LG Flatron W2242PM-BS over a standard VGA cable
+  (2026-11-05). The screen shows one full-screen
+  effect at a time, starting with the sine plasma. SW2 steps to the XOR fractal,
+  then the two-source interference pattern, then back to the plasma.
 
 Tested: the board's exact build+upload command chain (apio 1.6 `build` with
 `board = ice40-up5k`, then the upload hook) built and configured the FPGA, and
-the example's code block compiles and runs on the board. **Not yet tested:**
-clicking through the Icestudio GUI itself.
+the example's code block compiles and runs on the board. The Upload button itself
+was later tested in the GUI with `blink.ice`.
 
 Keep `icestudio/app/resources/boards/Icey/iceyprog.py` in sync with
 `tools/iceyprog.py` (the fork must be self-contained).
