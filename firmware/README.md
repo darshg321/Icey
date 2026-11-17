@@ -6,12 +6,13 @@ USB, plus what was learned bringing up the real hardware (Oct 2026).
 ```
 firmware/
 ├── README.md            this file
-├── life-demo.sh         one-command showcase demo (Life + USB host + microSD; --vga adds a monitor)
+├── life-demo.sh         one-command demos: terminal showcase, --vga (all of it on a monitor), --patterns
 ├── icey.pcf             full pin constraints for the board
 ├── tools/
 │   ├── setup.sh         one-time host setup (venv + udev rule)
 │   ├── iceyprog.py      programmer for Icey's FTDI pinout
 │   ├── ice2v.py         Icestudio project -> Verilog/PCF (no GUI)
+│   ├── vga_font.py      8x16 font ROM for the VGA text layer in showcase_vga.ice
 │   └── 53-icey-ftdi.rules
 ├── examples/
 │   ├── common.mk        shared Makefile rules
@@ -43,11 +44,15 @@ How each result was verified:
 | `examples/flashtest` | Single and quad SPI flash reads from the FPGA | Works: quad matches single on all 106,496 bytes, 4.0x faster | Script |
 | `examples/icestudio/life.ice` | Life engine, block RAM, 3 Mbaud streaming | Works: 178,540 gen/s, 19,889 generations bit-exact vs NumPy | Script |
 | `examples/icestudio/showcase.ice` (`life-demo.sh`) | Life plus USB host, keyboard, SD and RGB in one design | Works: board check, keyboard controls, SW2, typing test, SD patterns and bit-exact proof | Script and seen |
-| `examples/icestudio/vga_demo.ice` | VGA DAC and sync, PLL, SW2 | Works on a monitor: plasma, XOR fractal and interference, switched with SW2 | Seen |
-| `examples/icestudio/showcase_vga.ice` (`life-demo.sh --vga`) | Everything in the showcase plus VGA, with two clock domains | Works on a monitor: live Life grid and cycling scenes, with the USB keyboard, SW2 and microSD also working. Life bit-exact (18,052 generations on 2026-11-05) | Seen and script |
+| `examples/icestudio/vga_demo.ice` (`life-demo.sh --patterns`) | VGA DAC and sync, PLL, SW2 | Works: the current 6-effect auto-cycling version on an HDMI monitor through a VGA-to-HDMI adapter, clocked from the FTDI (2026-11-16). The older 3-effect version also worked on the VGA monitor from the internal oscillator | Seen |
+| `examples/icestudio/showcase_vga.ice` (`life-demo.sh --vga`) | Everything in the showcase plus VGA, with two clock domains | Works: the current version (whole show on the monitor, 80x30 text layer) on an HDMI monitor through a VGA-to-HDMI adapter, clocked from the FTDI, with the show's UART link on channel B running alongside (2026-11-16). The older version without the text layer also worked on the VGA monitor (Life bit-exact, 18,052 generations on 2026-11-05) | Seen and script |
+| `examples/vga_adapter_test` | Why a VGA-to-HDMI adapter showed black: colour bars from HFOSC+PLL, HFOSC alone, 800x600, and FTDI clock → PLL (`extclk.py`); `fmeter/` measures the FTDI clock over the UART | Only the FTDI-clocked build (`top_ext`) shows a picture through the adapter (2026-11-16) | Seen and script |
 | `verify/icey` in the separate `icey-vga-chip` repo | The chip project's VGA design running on real pins | Works: sync timing, blanking and pixel CRCs for 17 frames match the reference model (2026-10-26) | Script |
 
-The monitor tested is an LG Flatron W2242PM-BS with a standard VGA cable.
+Monitors tested: an LG Flatron W2242PM-BS with a standard VGA cable, and an HDMI
+monitor through a powered VGA-to-HDMI adapter (Amazon.ca B07K14NR8P).
+`life-demo.sh` builds the VGA demos for the adapter by default; `--purevga` is the
+internal-oscillator build for a VGA monitor (see the showcase section).
 
 ### What doesn't work
 
@@ -55,13 +60,15 @@ The monitor tested is an LG Flatron W2242PM-BS with a standard VGA cable.
 |---|---|---|
 | FPGA doesn't boot from flash at power-up | Rev 1 hardware: SPI data lines crossed, see note 2 | Reload over USB after every power-up |
 | Stock `iceprog` and openFPGALoader can't program the board | FTDI pinout differs, see note 1 | Use `tools/iceyprog.py` |
+| VGA-to-HDMI adapter shows a black screen with the internal-oscillator VGA builds | The adapter can't lock onto the HFOSC-derived pixel clock (tested: PLL 25 MHz, no-PLL 24 MHz and 800x600 all black; an FTDI-clocked build shows a picture) | Default `life-demo.sh` VGA builds: the PLL is fed from the FTDI's crystal on pin 15 (`tools/extclk.py`); the board must stay on USB. Proper fix: a crystal oscillator on the next revision |
 
 ### Not tested on the board
 
 These have no recorded result, so they aren't known to be broken:
 
-- **`v` scene key** on `showcase_vga.ice`. The VGA scene command behind it was
-  checked by script.
+- **The current `showcase_vga.ice` and `vga_demo.ice` with `--purevga`** on the
+  VGA monitor (they work through the HDMI adapter; only older versions were seen on
+  the VGA monitor).
 - **Icestudio Upload** with anything other than `blink.ice`.
 - **`learn/` site**: WebUSB upload and the WebSerial terminal.
 - **Headers** J1 (GPIO) and J2 (config SPI).
@@ -94,6 +101,7 @@ actually observed with the board plugged in (2026-10-12 unless dated otherwise).
 | [x] | iCE40UP5K logic, block RAM, `SB_RGBA_DRV` | All examples run; Life demo uses 8 BRAMs and 52% of the logic |
 | [x] | Internal 48 MHz oscillator (no crystal on board) | Runs UART at 115200 and 3 Mbaud error-free |
 | [x] | PLL (from internal oscillator) | Measured 25.055 MHz output (target 25.125) via UART timing |
+| [x] | PLL from an external clock (FTDI SCK on pin 15) | FT2232H free-running SCK (MPSSE 0x95, 15 MHz measured) → PLL → 25.3125 MHz; drives the VGA demos through the HDMI adapter (2026-11-16) |
 | [x] | LED1 (pin 9) | Blink seen by user |
 | [x] | RGB LED4 (pins 39–41) | Each lit alone: **RGB0 = red, RGB1 = blue, RGB2 = green** |
 | [x] | LED2 "not configured" (CDONE) | Goes off when configured, seen by user |
@@ -107,7 +115,7 @@ actually observed with the board plugged in (2026-10-12 unless dated otherwise).
 |---|---|---|
 | [x] | UART FPGA ⇄ PC (FTDI channel B) | 115200: 508 bytes, 0 errors. 3 Mbaud: Life demo moves ~2 KB snapshots continuously |
 | [x] | QSPI flash from FPGA user logic | `examples/flashtest`: quad read (0x6B, IO0–IO3) matches single read on all 106,496 bytes of the stored bitstream; every IO line toggles; 5.97 vs 1.50 MB/s at 12 MHz SCK (4.0x). QE was already set at the factory |
-| [x] | VGA output (3/3/2-bit DAC + sync) | Works on a real monitor, an LG Flatron W2242PM-BS over a standard VGA cable (2026-11-05): `vga_demo.ice` and `showcase_vga.ice` both displayed correctly, confirmed by eye. 640×480 from the internal oscillator, no external clock; pixel clock measured at 31.32 kHz / 59.65 Hz |
+| [x] | VGA output (3/3/2-bit DAC + sync) | Works on a real monitor, an LG Flatron W2242PM-BS over a standard VGA cable (2026-11-05): `vga_demo.ice` and `showcase_vga.ice` both displayed correctly, confirmed by eye. 640×480 from the internal oscillator, no external clock; pixel clock measured at 31.32 kHz / 59.65 Hz. Through a VGA-to-HDMI adapter (2026-11-16) it needs the FTDI-derived clock (`tools/extclk.py`, 31.48 kHz / 59.97 Hz); with it, both demos display correctly. The adapter takes a few seconds longer than the VGA monitor to show the picture |
 | [x] | USB host (MAX3421E + USB-C peripheral port) | Rev 0x13, crystal OK; a Keychron C3 Pro (full-speed) enumerated (VID 3434/PID 0430, strings read), configured as a boot keyboard, and typed keys arrived correctly on the PC |
 | [x] | microSD card (SPI, shared bus) | 62.5 GB SDHC card: init in 0.29 s, CID/CSD read, sector reads at 6 MHz, FAT32 file listing. **Write**: one unused sector (gap before the partition) written with random data, read back identical, original restored and verified (`hwtest.py sdwrite`) |
 
@@ -122,8 +130,8 @@ actually observed with the board plugged in (2026-10-12 unless dated otherwise).
 | [x] | `examples/icestudio/life.ice` + `life.py` | 178k gen/s; 19,889–20,041 generations bit-exact vs NumPy |
 | [x] | `examples/icestudio/showcase.ice` + `life-demo.sh` | Runs end to end: board check (USB host, keyboard, SD file listing, RGB); keyboard on the board steers the show (pause, speed, patterns, next act all seen working; quit checked with a scripted Esc); SW2 = new soup; typing test and SD pattern act confirmed by user (2026-11-05); bit-exact proof |
 | [x] | `examples/hwtest` (`hwtest.py`) | All 8 tests run on the board (see Peripherals) |
-| [x] | `examples/icestudio/vga_demo.ice` | Seen on a real monitor: live plasma, XOR fractal and interference effects, one at a time, with SW2 switching between them |
-| [x] | `examples/icestudio/showcase_vga.ice` + `life-demo.sh --vga` | Seen on a real monitor: the live Life grid and the 8 scenes the FPGA cycles through. The show ran alongside it: Life bit-exact (18,052 gens on 2026-11-05), 178,766 gen/s, SD/USB host/RGB board check, VGA scene command acks |
+| [x] | `examples/icestudio/vga_demo.ice` + `life-demo.sh --patterns` | Current 6-effect auto-cycling version seen through the VGA-to-HDMI adapter (2026-11-16). 3-effect version seen on the VGA monitor. Current version with `--purevga` on the VGA monitor not yet seen |
+| [x] | `examples/icestudio/showcase_vga.ice` + `life-demo.sh --vga` | Current version (whole show on the monitor, text layer) seen through the VGA-to-HDMI adapter (2026-11-16). Version without the text layer seen on the VGA monitor (Life bit-exact, 18,052 gens on 2026-11-05; 178,766 gen/s; board check; scene command acks). Current version with `--purevga` not yet seen |
 
 **Practical upshot:** the board works, but your design must be reloaded over USB
 after every power-up (flash boot is broken on rev 1).
@@ -278,8 +286,12 @@ sees the bitstream; its first byte is `0xFF`, which the flash ignores.
 - **No external FPGA clock.** Use `SB_HFOSC` (48 MHz, divisible down to 12 MHz;
   all examples use 12 MHz). It's roughly ±10% accurate: 115200 baud UART worked
   fine, and an LG Flatron W2242PM-BS displays the HFOSC-derived pixel clock correctly.
-  A fussier monitor may want a real oscillator into **header P4 (FPGA 35, global
-  buffer G0)**.
+  A VGA-to-HDMI adapter does **not** (black screen); it works with the PLL fed from
+  the FTDI's crystal instead: after loading, the FT2232H free-runs the flash SCK
+  line (pin 15) at 15 MHz (`tools/extclk.py`, MPSSE 0x95; 30 MHz requested, 15
+  measured). This only runs while the board is on USB, and `/dev/ttyUSB0` is gone
+  until the next `iceyprog.py` command or replug. For a standalone fix, put a real
+  oscillator into **header P4 (FPGA 35, global buffer G0)**.
 - **LED1** (pin 9) is active high.
 - **LED2** is wired from +3V3 to CDONE, so it's **on while the FPGA is NOT
   configured**.
@@ -348,6 +360,27 @@ and also exports `clk_out`).
 ./firmware/life-demo.sh          # add --loop for kiosk mode
 ```
 
+There are three demos, all started by this script:
+
+| Command | Needs | What you get |
+|---|---|---|
+| `life-demo.sh` | the board | the showcase below, in this terminal |
+| `life-demo.sh --vga` | the board + a VGA monitor | the same showcase on the monitor too, plus the effects (`--visuals` starts with the effects) |
+| `life-demo.sh --patterns` | the board + a VGA monitor | only patterns on the monitor |
+
+**HDMI by default, `--purevga` for a VGA monitor.** VGA-to-HDMI adapters can't lock
+onto a pixel clock made from the iCE40's internal RC oscillator (black screen; a
+real VGA monitor is fine with it). So the VGA demos (`--vga`, `--visuals`,
+`--patterns`) are built with `tools/extclk.py`: the PLL takes its reference from the
+flash SCK pin (15), which the FT2232H free-runs at 15 MHz off its crystal after
+loading (MPSSE 0x95). 15 MHz → 25.3125 MHz pixel clock, with 804-clock lines so the
+sync rates stay on spec (31.48 kHz, 59.97 Hz). The board must stay plugged into
+the PC while they run; `/dev/ttyUSB0` disappears until the next `iceyprog.py`
+command or replug, which also stops the clock. Add `--purevga` for the original
+internal-oscillator build, which runs on its own after loading (and is what
+Icestudio's Upload button gives you). The adapter takes several seconds longer than
+a VGA monitor to show the picture.
+
 It installs the tools on first run, builds `showcase.ice` (using
 `tools/ice2v.py`, no Icestudio needed; cached after the first build), loads it,
 and plays a full-screen show (`life_show.py`):
@@ -363,7 +396,8 @@ and plays a full-screen show (`life_show.py`):
 
 **Controls** (keyboard plugged into the *board's* USB-C port): `space` pause,
 `r` new soup, `g`/`a`/`p` glider gun / acorn / R-pentomino, `s` next SD pattern,
-`+`/`-` speed, `n` next act, `t` typing test, `esc` quit. **SW2** = new soup.
+`+`/`-` speed, `n` next act, `t` typing test, `v` visuals mode (`--vga` only),
+`esc` quit. **SW2** = new soup.
 
 **Typing test** (`t` in the show, or `./firmware/life-demo.sh --typing`): a
 Monkeytype-style test (15/30/60 s, WPM, raw, accuracy, per-second chart) where
@@ -379,16 +413,32 @@ to the bridge. 58% of the logic cells, 9/30 block RAMs, timing 34 MHz vs 24 MHz.
 Use a truecolor terminal; at ≥172×70 the grid is one block per cell,
 otherwise braille.
 
-### Showcase + VGA (`examples/icestudio/showcase_vga.ice`)
+### Showcase + VGA (`examples/icestudio/showcase_vga.ice`): the whole show on a monitor
 
 ```sh
-./firmware/life-demo.sh --vga    # same show, plus a VGA monitor on the board
+./firmware/life-demo.sh --vga       # the showcase, on a monitor plugged into the board (--purevga: VGA monitor)
+./firmware/life-demo.sh --visuals   # same, starting in visuals mode (effects only)
 ```
 
-The same showcase (everything above still works) plus the VGA port: the
-**live Life grid** in the middle of the screen (3×3 pixels per cell, 384×384)
-while the FPGA cycles through colour schemes and the racing-the-beam effects
-from `vga_demo.ice` on its own, about 70 s per loop:
+Every part of the showcase also runs on the monitor, drawn by the FPGA: the
+board check (USB host, keyboard, microSD file list), the live Life grid with
+its stats and controls, patterns from the microSD, the flat-out benchmark, the
+proof, the Monkeytype-style typing test and its results, and the finale. The
+terminal shows the same show alongside. On top of that:
+
+- **Racing the beam**: an extra act that shows the four effects full screen,
+  each with a caption.
+- **Visuals mode** (`v` during the show, or `--visuals`): the monitor shows
+  only the effects, with the FPGA cycling through its 8 scenes; `v` again goes
+  back to the show. The show keeps running underneath.
+- After the show exits, the FPGA keeps cycling the scenes on its own (no text),
+  until it's powered off or reloaded.
+
+| Board check | Benchmark | Typing test | Results |
+|---|---|---|---|
+| ![](examples/icestudio/showcase_vga_preview/show_1_board_check.png) | ![](examples/icestudio/showcase_vga_preview/show_2_benchmark.png) | ![](examples/icestudio/showcase_vga_preview/show_3_typing.png) | ![](examples/icestudio/showcase_vga_preview/show_4_results.png) |
+
+The 8 scenes (visuals mode, and after exit), with the grid in the middle:
 
 | # | Scene | # | Scene |
 |---|---|---|---|
@@ -396,8 +446,6 @@ from `vga_demo.ice` on its own, about 70 s per loop:
 | 2 | plasma | 6 | interference |
 | 3 | Life over the plasma | 7 | all 256 colours the DAC can make |
 | 4 | XOR fractal | 8 | Life, rainbow cells over the XOR fractal |
-
-The show's `v` key steps through the scenes one at a time, then back to cycling.
 
 | Life, rainbow | Life over plasma | Life over interference | All 256 colours |
 |---|---|---|---|
@@ -410,27 +458,39 @@ How it fits together:
   (or a PC `L` load) writes is also written into a 2 KB display copy. Its write
   side runs at 24 MHz and its read side at 25 MHz. The beam fetches one row per
   scan line during blanking, so the engine never waits for the display.
-- Command `G s` on the I/O bridge: scene 0–7 to hold one, 255 to cycle
-  (the power-up default) → `k`.
-- Fits at 95% of the logic cells, 17/30 block RAMs, 4/8 DSPs. The interference
-  effect's 4 multipliers are `SB_MAC16` blocks instantiated directly, because
-  apio (Icestudio) doesn't synthesise with `-dsp` and the LUT multipliers would
-  need 106%. Timing: 29 MHz vs 24, 31.5 MHz vs 25.1.
+- **Text layer**: 80x30 cells of 8x16 characters, drawn over everything else.
+  Each cell is a character plus a colour byte (foreground and background from a
+  16-colour palette, 0 = see-through). The cells live in one of the UP5K's
+  SPRAMs; the font (Terminus Bold, plus block, bar and box glyphs from
+  `tools/vga_font.py`) is in 4 block RAMs. The beam reads each cell 8 pixels
+  early, and PC writes go in the free RAM cycles between. `vga_screen.py` keeps
+  a copy of the screen and sends only the cells that change, so the PC can
+  redraw every frame over the same 3 Mbaud link the Life snapshots use.
+- I/O bridge commands added for the monitor:
+  - `T ah al n` + n × (char, colour) writes n text cells (0 = 256) from cell
+    `{ah, al}` = row × 128 + column → `k`.
+  - `G s` sets the scene: bit 7 = cycle on its own, bit 6 = hide the text,
+    bit 5 = Life grid in the middle (else at the left, beside the text panel),
+    bits 3–0 = scene to hold (0–7 above, 8 = text only) → `k`. 255, the
+    power-up default, means cycle with no text and the grid in the middle.
+- Fits at 91% of the logic cells (both yowasp and apio, Icestudio's
+  toolchain), 26/30 block RAMs, 1/4 SPRAMs, 4/8 DSPs. Timing: 28.5 MHz vs 24,
+  30.4 MHz vs 25.1. To make room for the text layer the plasma's sines moved
+  from logic into 5 block RAM tables, and the interference effect squares
+  signed differences in its DSPs instead of computing absolute values. Both
+  give the same pixels as before (checked over 6 simulated frames each).
 
-Verified: the VGA half (timing, 4 effects, Life layer, director, compositor)
-simulated with Yosys CXXRTL against a monitor model that syncs on HSYNC/VSYNC.
-Every one of the 16,384 cells lands on its 3×3 block, nothing is drawn during
-blanking in any of the 8 scenes, and the director's schedule was checked over
-6,000 frames. The previews above are those frames. On the board: the show runs
-end to end with `--vga`, Life is bit-exact, and the speed is unchanged.
+Verified in simulation (2026-11-09): the whole design in Verilator, fed the
+same UART bytes `vga_screen.py` sends, with a monitor model that syncs on
+HSYNC/VSYNC. Every screen of the show renders as intended (the previews above
+are those frames), no pixel is lit during blanking, every command gets its `k`,
+and Life snapshots stay bit-exact with text writes going on between them. The
+Python side ran end to end (every act, visuals mode, typing test) against a
+model of the board's command set. **Not yet run on the board.**
 
-**Works on a real monitor**: an LG Flatron W2242PM-BS over a standard VGA cable
-(2026-11-05). The screen shows the live Life grid in
-the middle (384×384) and moves through the 8 scenes above on its own: Life in
-rainbow colours, the plasma, XOR and interference effects with and without Life
-on top, and the 256-colour chart. The FPGA drives this itself, so the scenes keep
-cycling after the terminal show exits, until the board is powered off or
-reloaded.
+The previous version of this design (Life grid and cycling scenes, no text)
+**worked on a real monitor**: an LG Flatron W2242PM-BS over a standard VGA
+cable (2026-11-05), with Life bit-exact and the show running alongside.
 
 ### Game of Life (`examples/icestudio/life.ice` + `life.py`): no monitor needed
 
@@ -463,37 +523,48 @@ flat out, 255 = stop, else n×65536 clocks per generation); `N` → single step.
 `L`, `V` and `N` reply `k`. Grid bytes: rows 0–127, 16 bytes per row, bit x =
 column x.
 
-### VGA demo (`examples/icestudio/vga_demo.ice`): why FPGAs
+### VGA demo (`examples/icestudio/vga_demo.ice`): just patterns
 
-A "racing the beam" demo for the on-board VGA port. Seven Icestudio blocks run
-in parallel. Every pixel of 640x480@60 is **computed live as the monitor draws
-it**: 25 million pixels per second, no framebuffer, no CPU. **SW2** cycles
-through the effects. All three are computed every clock; the output block
-just picks one.
+```sh
+./firmware/life-demo.sh --patterns   # HDMI adapter; add --purevga for a VGA monitor, or use Icestudio's Upload
+```
+
+A "racing the beam" demo for the on-board VGA port, with nothing else: no
+Life, keyboard or PC needed once it's loaded. Every pixel of 640x480@60 is
+**computed live as the monitor draws it**: 25 million pixels per second, no
+framebuffer, no CPU. Six effects take turns, about 8 s each, and **SW2** skips
+to the next one. All six are computed every clock; the output block just picks
+one.
 
 | Plasma: 7 sine lookups/pixel | XOR fractal | Interference: 4 multiplies/pixel |
 |---|---|---|
 | ![](examples/icestudio/vga_demo_preview/1_plasma.png) | ![](examples/icestudio/vga_demo_preview/2_xor.png) | ![](examples/icestudio/vga_demo_preview/3_interference.png) |
 
-Blocks: 25 MHz pixel clock (HFOSC → PLL) → VGA timing → 3 effect pipelines
+| All 256 colours | Starfield: 3 layers of parallax | Rotozoomer: a turning, zooming texture |
+|---|---|---|
+| ![](examples/icestudio/vga_demo_preview/4_256_colours.png) | ![](examples/icestudio/vga_demo_preview/5_starfield.png) | ![](examples/icestudio/vga_demo_preview/6_rotozoom.png) |
+
+Blocks: 25 MHz pixel clock (HFOSC → PLL) → VGA timing → 6 effect pipelines
 (3-clock latency each) → effect select + output (sync delayed 3 clocks to
-match). Button debounce and the LED heartbeat run alongside.
+match). The effect director (8 s timer + SW2 debounce) and the LED heartbeat
+run alongside. The rotozoomer does its sines and multiplies once a frame
+during blanking; per pixel it's two additions. The starfield stores nothing:
+each line's stars come from a hash of the line number.
 
 Verified:
-- Simulated with iverilog against a "monitor" model that syncs on HSYNC/VSYNC.
-  800 clocks/line, 525 lines/frame, zero non-black pixels in blanking for all
-  3 effects. The preview images above are those simulated frames, rendered at
-  the board's 8-bit colour depth.
-- Button simulation: each press advances one effect (0→1→2), holding doesn't
-  repeat.
-- Built through apio exactly as Icestudio does: 33% of logic cells, timing 31.6
-  MHz vs 25.125 MHz needed.
+- Original 3 effects: simulated with iverilog against a "monitor" model that
+  syncs on HSYNC/VSYNC. 800 clocks/line, 525 lines/frame, zero non-black pixels
+  in blanking. Built through apio exactly as Icestudio does.
+- Current 6-effect version (2026-11-09): simulated in Verilator for 3,075
+  frames, the director stepping through all 6 effects; zero non-black pixels in
+  blanking. The previews are those frames. Builds at 53% of the logic cells,
+  timing 33 MHz vs 25.1. Not yet run on the board.
 - On the board: measured the HFOSC→PLL pixel clock at **25.055 MHz** (hsync
   31.32 kHz, vsync 59.65 Hz; VGA spec 31.47 kHz / 59.94 Hz).
-- **Works on a real monitor**: an LG Flatron W2242PM-BS over a standard VGA cable
-  (2026-11-05). The screen shows one full-screen
-  effect at a time, starting with the sine plasma. SW2 steps to the XOR fractal,
-  then the two-source interference pattern, then back to the plasma.
+- **The 3-effect version worked on a real monitor**: an LG Flatron W2242PM-BS
+  over a standard VGA cable (2026-11-05). The screen showed one full-screen
+  effect at a time, starting with the sine plasma, and SW2 stepped through the
+  XOR fractal and the interference pattern.
 
 Tested: the board's exact build+upload command chain (apio 1.6 `build` with
 `board = ice40-up5k`, then the upload hook) built and configured the FPGA, and

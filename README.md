@@ -1,10 +1,12 @@
 # Icey
 
+![demo](assets/DEMO.gif)
+
+![build](assets/BUILD.png)
+
 an Uno-sized FPGA iCE40-UP5K board for learning!
 
-<video src="https://github.com/darshg321/Icey/raw/main/assets/DEMO.mp4" controls width="100%"></video>
-
-*conway's game of life running on icey, 128 cells computed every clock! ([video](assets/DEMO.mp4))*
+*conway's game of life running on icey, 128 cells computed every clock! full videos: [through an HDMI adapter](assets/DEMO.mp4), [on a VGA monitor](assets/DEMO_PUREVGA.mp4)*
 
 it features:
 - integrated VGA connector with display out
@@ -16,22 +18,20 @@ it features:
 - LEDs
 - buttons
 
-# Learn
-
-A project-based Verilog course built around this board, with a Verilog compiler, simulator and the iCE40 toolchain running in your browser: [`learn/`](learn/README.md). It goes from lighting an LED to building a CPU and an Apple I.
-
-```sh
-cd learn && npm install && npm run dev
-```
-
 # Firmware
 
 tools, examples and bring-up notes are in [`firmware/`](firmware/README.md). to run the demo:
 
 ```sh
 git clone --recurse-submodules https://github.com/darshg321/Icey && cd Icey
-./firmware/life-demo.sh
+./firmware/life-demo.sh             # in the terminal: Life, USB keyboard, microSD, typing test
+./firmware/life-demo.sh --vga       # all of that on a monitor too, plus effects
+./firmware/life-demo.sh --patterns  # just patterns on a monitor
 ```
+
+the VGA demos are set up for a VGA-to-HDMI adapter by default (the pixel clock comes
+from the USB chip's crystal, so keep the board plugged in). on a plain VGA cable and
+monitor, add `--purevga` and the board runs on its own.
 
 # PCB
 

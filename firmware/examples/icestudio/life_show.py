@@ -9,8 +9,9 @@ A keyboard plugged into the board's USB host port steers the show.
     life_show.py           play once, then wait for Enter
     life_show.py --loop    kiosk mode: repeat forever (Ctrl-C to quit)
     life_show.py --typing  straight to the Monkeytype-style typing test
-    life_show.py --vga     the design is showcase_vga.ice: also on a VGA monitor
-                           (v = next VGA scene)
+    life_show.py --vga     the design is showcase_vga.ice: the whole show also
+                           runs on a VGA monitor (v = visuals mode, effects only)
+    life_show.py --vga --visuals   start in visuals mode
 """
 import argparse
 import os
@@ -26,6 +27,8 @@ from life import CLOCK, N, Life, make_grid, step  # noqa: E402
 from hwtest import (SD_CS, USB_CS, USB_RST, Bridge, Fat32, Keyboard,  # noqa: E402
                     sd_init)
 from typing_test import TypingTest  # noqa: E402
+from vga_screen import EFFECTS, SCENES, VgaShow  # noqa: E402
+from vga_screen import BAD as V_BAD, CREAM, GOOD as V_GOOD, WARM as V_WARM  # noqa: E402
 
 # ------------------------------------------------------------- styling -----
 ESC = '\x1b['
@@ -169,10 +172,6 @@ class Screen:
 
 # ------------------------------------------------------------- the show ----
 RED, BLUE, GREEN = 0x10, 0x20, 0x40          # RGB LED bits in the bridge's 'C' command
-VGA_AUTO = 255                               # bridge 'G' command: let the FPGA cycle scenes
-VGA_SCENES = ['Life, rainbow cells', 'plasma', 'Life over the plasma', 'XOR fractal',
-              'Life over the interference', 'interference', 'all 256 colours',
-              'Life over the XOR fractal']
 BASE = SD_CS | USB_CS | USB_RST              # chip selects idle high, MAX3421E running
 
 
@@ -247,11 +246,13 @@ def stdin_enter():
 
 
 class Show:
-    def __init__(self, life, scr, vga=False):
+    def __init__(self, life, scr, vga=False, visuals=False):
         self.b, self.s = life, scr
         self.vga = vga
-        self.scene = VGA_AUTO
         self.io = Bridge(port=life.p)
+        self.v = VgaShow(self.io) if vga else None   # the same show on the VGA monitor
+        if self.v and visuals:
+            self.v.set_visuals(True)
         self.age = np.zeros((N, N), np.uint8)
         self.pc_rate = None
         self.kbd = None
@@ -268,15 +269,10 @@ class Show:
     def rgb(self, bits):
         self.io.set(BASE | bits)
 
-    def set_scene(self, n):
-        """VGA scene 0-7, or VGA_AUTO (showcase_vga.ice only)."""
-        self.scene = n
-        self.io.p.write(bytes([ord('G'), n]))
-        assert self.io._read(1) == b'k'
-
     def scene_name(self):
-        return ('cycling: Life, colours, effects' if self.scene == VGA_AUTO
-                else f'{self.scene + 1}/8 {VGA_SCENES[self.scene]}')
+        if self.v.visuals:
+            return 'visuals mode: effects only (v = back)'
+        return SCENES[self.v.life_scene]
 
     def inputs(self):
         """New keyboard keys + SW2 presses since the last call."""
@@ -293,9 +289,9 @@ class Show:
         self.btn_prev = released
         if 'esc' in ev or 'q' in ev:
             raise Quit
-        if self.vga and 'v' in ev:                 # auto -> 0 -> 1 ... -> 7 -> auto
-            self.set_scene(0 if self.scene == VGA_AUTO else self.scene + 1 if self.scene < 7 else VGA_AUTO)
-            self.last_input = f"keyboard 'v': VGA {self.scene_name()}"
+        if self.vga and 'v' in ev:                 # effects only on the monitor, and back
+            self.v.set_visuals(not self.v.visuals)
+            self.last_input = "keyboard 'v': " + ('VGA visuals mode' if self.v.visuals else 'VGA show')
         if 'n' in ev or 'right' in ev:
             raise NextAct
         return ev
@@ -314,7 +310,7 @@ class Show:
                  k('t', 'typing test (keys via the FPGA)'),
                  k('esc', 'quit') + '       ' + fg(*MUTED) + 'SW2 = new soup']
         if self.vga:
-            lines.insert(-1, k('v', 'next VGA scene (then back to cycling)'))
+            lines.insert(-1, k('v', 'VGA visuals mode: effects only (and back)'))
         if self.sd_patterns:
             lines.insert(4, k('s', f'next pattern from the microSD ({len(self.sd_patterns)})'))
         return lines
@@ -326,6 +322,7 @@ class Show:
         rows = []
         top = 3
         left = max(0, (s.cols - 84) // 2)
+        footer = None
 
         def show(extra=None):
             for i, (mark, label, text) in enumerate(rows + ([extra] if extra else [])):
@@ -335,14 +332,15 @@ class Show:
                 sys.stdout.write(s.at(top + 2 + i, left) + bg(*BG) + '\x1b[K' + c + RESET + '  ' +
                                  BOLD + f'{label:<10}' + RESET + fg(220, 225, 235) + text + RESET)
             s.flush()
+            if self.v:
+                self.v.board_check(rows, extra, footer)
 
         sys.stdout.write(s.at(top, left) + BOLD + fg(*ACCENT) + 'BOARD CHECK' + RESET +
                          fg(*MUTED) + '   everything below is reached through the FPGA')
         rows.append(('ok', 'FPGA', 'Life engine + I/O bridge loaded, sharing one 3 Mbaud USB link'))
         if self.vga:
-            self.set_scene(VGA_AUTO)
-            rows.append(('ok', 'VGA', '640x480@60 on the VGA port: the live Life grid, cycling through '
-                                      'colours and effects'))
+            rows.append(('ok', 'VGA', '640x480@60 on the VGA port, from the PLL: '
+                                      'the text, Life grid and effects are all drawn by the FPGA'))
         show()
 
         self.rgb(RED | BLUE)
@@ -395,11 +393,11 @@ class Show:
             time.sleep(0.4)
         rows.append(('ok', 'RGB LED', 'red / blue / green on pins 39 / 40 / 41'))
         rows.append(('ok', 'SW2', 'press it during the show for a new soup (LED1 lights while held)'))
+        footer = 'starting in a moment...  (n = skip, esc = quit)'
         show()
         self.rgb(0)
         t = time.time()
-        sys.stdout.write(s.at(top + 3 + len(rows), left) + fg(*MUTED) +
-                         'starting in a moment...  (n = skip, esc = quit)' + RESET)
+        sys.stdout.write(s.at(top + 3 + len(rows), left) + fg(*MUTED) + footer + RESET)
         s.flush()
         while time.time() - t < 4:
             try:
@@ -409,9 +407,15 @@ class Show:
             time.sleep(0.05)
 
     # -------------------------------------------------------------- watch --
-    def watch(self, title, grid, rate, seconds, notes, rgb=BLUE):
+    def watch(self, title, grid, rate, seconds, notes, rgb=BLUE, scene=0):
+        """notes: plain text lines. scene: VGA scene behind the grid."""
         b, s = self.b, self.s
         self.rgb(rgb)
+
+        def screen():
+            s.clear(); s.header(); s.frame_box(title)
+            if self.v:
+                self.v.life_screen(title, scene)
 
         def load(g):
             b.speed(255)
@@ -423,7 +427,7 @@ class Show:
 
         load(grid)
         set_rate(rate)
-        s.clear(); s.header(); s.frame_box(title)
+        screen()
         g0, t0, paused = None, time.time(), False
         last = (None, None); r = 0.0
         while time.time() - t0 < seconds or paused:
@@ -446,7 +450,7 @@ class Show:
                 elif e == 't':
                     TypingTest(self).run()
                     self.rgb(rgb)
-                    s.clear(); s.header(); s.frame_box(title)
+                    screen()
                     load(make_grid('random', np.random.default_rng())); set_rate(rate)
                     paused = False
                     g0 = last = None
@@ -469,20 +473,50 @@ class Show:
             s.panel([stat('generation', f'{gen - g0:,}'),
                      stat('live cells', f'{int(g.sum()):,}'),
                      stat('speed', 'paused' if paused else f'{r:,.0f} gen/s'),
-                     '', *notes, '', *self.controls(),
+                     '', *[fg(*MUTED) + n for n in notes], '', *self.controls(),
                      '', stat('last input', self.last_input or '—', ACCENT),
                      *([stat('VGA', self.scene_name(), ACCENT)] if self.vga else []),
                      '', fg(*MUTED) + 'colour = cell age:  ' +
                      ''.join(fg(*PALETTE[a]) + '█' for a in (0, 1, 3, 6, 12, 25, 60, 150)) +
                      fg(*MUTED) + '  new → old'])
             s.flush()
+            if self.v:
+                self.v.watch(gen - g0, int(g.sum()), 'paused' if paused else f'{r:,.0f} gen/s',
+                             ' '.join(notes),
+                             self.v.controls(self.kbd and self.kbd.name, len(self.sd_patterns)),
+                             self.last_input or '-')
             time.sleep(1 / 40)
 
     def sd_act(self):
         for name, g in self.sd_patterns[:6]:
             self.watch(f'FROM YOUR microSD · {name[:30]}', g, 30, 8,
-                       [fg(*MUTED) + f'{name}, read from the card in the board\'s',
-                        fg(*MUTED) + 'microSD slot through the FPGA\'s SPI bus.'], rgb=GREEN | BLUE)
+                       [f'{name}, read from the card in the board\'s',
+                        'microSD slot through the FPGA\'s SPI bus.'], rgb=GREEN | BLUE, scene=7)
+
+    # ------------------------------------------------------------ visuals --
+    def racing_the_beam(self, seconds=6):
+        """VGA only: each effect full screen for a few seconds, with a caption."""
+        s = self.s
+        self.rgb(GREEN)
+        for k, (scene, name, how) in enumerate(EFFECTS, 1):
+            s.clear(); s.header()
+            left = max(0, (s.cols - 76) // 2)
+            for i, ln in enumerate([
+                    BOLD + fg(*ACCENT) + 'RACING THE BEAM' + RESET + fg(*MUTED) + '   look at the VGA monitor',
+                    '', BOLD + f'{k}/{len(EFFECTS)}  {name}' + RESET, fg(*MUTED) + how, '',
+                    fg(*MUTED) + 'Every pixel is computed as the monitor draws it: 25 million a second,',
+                    fg(*MUTED) + 'no framebuffer, no CPU. The Life engine is still in the same chip.',
+                    '', fg(*MUTED) + 'n = next   v = visuals mode (effects only, cycling on their own)']):
+                sys.stdout.write(s.at(4 + i, left) + bg(*BG) + ln + RESET)
+            s.flush()
+            self.v.visual(k, scene, name, how)
+            t = time.time()
+            while time.time() - t < seconds:
+                try:
+                    self.inputs()
+                except NextAct:
+                    break
+                time.sleep(0.05)
 
     # ------------------------------------------------------------ unleash --
     def measure_pc(self):
@@ -501,6 +535,9 @@ class Show:
                  fg(*MUTED) + 'FPGA running flat out, untouched for 2 s',
                  fg(*MUTED) + 'meanwhile: same simulation on this PC (NumPy)'])
         s.flush()
+        if self.v:
+            self.v.life_screen('ACT 3 · OFF THE LEASH', 4)
+            self.v.benchmarking()
         b.speed(255)
         b.load(make_grid('random', np.random.default_rng()))
         b.speed(0)
@@ -537,6 +574,8 @@ class Show:
                     fg(*MUTED) + 'The LED is red: flat out. The keyboard and',
                     fg(*MUTED) + 'SW2 still work, the I/O runs in parallel.'])
                 s.flush()
+                if self.v:
+                    self.v.unleash(fpga, pc, gen - g1)
                 time.sleep(1 / 15)
         except NextAct:
             pass
@@ -547,6 +586,8 @@ class Show:
         b, s = self.b, self.s
         self.rgb(RED | BLUE)
         s.clear(); s.header(); s.frame_box('ACT 4 · PROOF')
+        if self.v:
+            self.v.life_screen('ACT 4 · PROOF', 0)
         g = make_grid('random', np.random.default_rng())
         b.speed(255)
         b.load(g)
@@ -570,6 +611,8 @@ class Show:
                                 fg(*MUTED) + 'to check every single cell:', '',
                                 bar(done, 30, ACCENT) + f' {done * 100:5.1f}%',
                                 fg(*MUTED) + f'{time.time() - t0:5.1f} s on the PC']); s.flush()
+                if self.v:
+                    self.v.proof(n, done, time.time() - t0)
         diff = int((ref != fpga_grid).sum())
         ok = diff == 0
         self.rgb(GREEN if ok else RED)
@@ -580,6 +623,8 @@ class Show:
                         fg(*MUTED) + 'Bit-exact with the software reference.' if ok else '',
                         fg(*MUTED) + 'The LED is green: proof passed.' if ok else ''])
         s.flush()
+        if self.v:
+            self.v.proof(n, 1.0, time.time() - t0, (ok, diff))
         t = time.time()
         while time.time() - t < 4:
             try:
@@ -623,13 +668,33 @@ class Show:
         for i, ln in enumerate(lines):
             sys.stdout.write(s.at(top + i, left) + bg(*BG) + ln + RESET)
         s.flush()
+        if self.v:
+            usb = (f'USB host: {kb} enumerated by the board, {self.keys_seen} keys read' if kb
+                   else 'USB host: MAX3421E controller (no keyboard plugged in)')
+            sd = (f"microSD: {self.sd_info.get('bytes', 0) / 1e9:.1f} GB card, {len(self.sd_files)} "
+                  'files listed from its FAT32 filesystem' if self.sd_info else 'microSD: no card inserted')
+            self.v.finale([
+                ("• The grid lives in the FPGA's block RAM. 128 copies of the Life rule are wired "
+                 'side by side in the chip: a whole row of 128 cells per clock.', CREAM),
+                (f'• Flat out: {fpga:,.0f} generations/s ({fpga * N * N / 1e9:.2f} billion cell '
+                 f'updates/s), {fpga / self.pc_rate:,.0f}x NumPy on this PC.', V_WARM),
+                (f'• Proof: {n:,} generations, every cell ' + ('identical' if ok else 'NOT identical') +
+                 ' to the PC.', V_GOOD if ok else V_BAD),
+                ("• At the same time, an I/O bridge in the same chip ran the board's peripherals "
+                 'over the same USB cable:', CREAM),
+                ('  - ' + usb, CREAM), ('  - ' + sd, CREAM),
+                ('  - SW2 button, RGB LED and LED1 driven by the FPGA', CREAM),
+                ('• And this screen: 25 million pixels a second from the FPGA, text, Life grid '
+                 'and effects all computed live, no framebuffer.', CREAM),
+                ('', 0), ('Design: firmware/examples/icestudio/showcase_vga.ice', CREAM)],
+                'replaying in 8 s...' if loop else 'Enter or Esc on the keyboard to exit')
 
 
-def run(loop, typing=False, vga=False):
+def run(loop, typing=False, vga=False, visuals=False):
     life = Life()
     try:
         with Screen() as scr:
-            show = Show(life, scr, vga)
+            show = Show(life, scr, vga, visuals)
             try:
                 show.board_check()
                 if typing:
@@ -637,19 +702,21 @@ def run(loop, typing=False, vga=False):
                     raise Quit
                 while True:
                     fpga, n, ok = None, 0, False
-                    for act in ('soup', 'gun', 'sd', 'leash', 'proof'):
+                    for act in ('soup', 'gun', 'sd', 'beam', 'leash', 'proof'):
                         try:
                             if act == 'soup':
                                 show.watch('ACT 1 · PRIMORDIAL SOUP',
                                            make_grid('random', np.random.default_rng()), 20, 12,
-                                           [fg(*MUTED) + 'A random grid, slowed to 20 gen/s so you can',
-                                            fg(*MUTED) + 'watch. Order emerges from noise.'])
+                                           ['A random grid, slowed to 20 gen/s so you can',
+                                            'watch. Order emerges from noise.'])
                             elif act == 'gun':
                                 show.watch('ACT 2 · GOSPER GLIDER GUN', make_grid('gun', None), 40, 12,
-                                           [fg(*MUTED) + 'Fires a glider every 30 generations, forever',
-                                            fg(*MUTED) + '(the grid wraps, so they come back around).'])
+                                           ['Fires a glider every 30 generations, forever',
+                                            '(the grid wraps, so they come back around).'], scene=2)
                             elif act == 'sd' and show.sd_patterns:
                                 show.sd_act()
+                            elif act == 'beam' and vga:
+                                show.racing_the_beam()
                             elif act == 'leash':
                                 fpga = show.unleash(10)
                             elif act == 'proof':
@@ -678,6 +745,8 @@ def run(loop, typing=False, vga=False):
         try:
             life.speed(255)
             Bridge(port=life.p).set(BASE)
+            if vga:
+                VgaShow(Bridge(port=life.p)).off()   # monitor: scenes cycle on their own
         except Exception:  # noqa: BLE001
             pass
         life.close()
@@ -689,5 +758,6 @@ if __name__ == '__main__':
     ap.add_argument('--loop', action='store_true', help='repeat forever (kiosk mode)')
     ap.add_argument('--typing', action='store_true', help='go straight to the typing test')
     ap.add_argument('--vga', action='store_true', help='showcase_vga.ice is loaded (VGA output)')
+    ap.add_argument('--visuals', action='store_true', help='with --vga: start in visuals mode')
     a = ap.parse_args()
-    run(a.loop, a.typing, a.vga)
+    run(a.loop, a.typing, a.vga, a.visuals)

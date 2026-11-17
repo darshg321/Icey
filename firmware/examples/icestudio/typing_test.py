@@ -4,13 +4,16 @@ Every keystroke comes from the keyboard plugged into the *board*: keyboard ->
 MAX3421E USB host -> FPGA (SPI bridge) -> USB -> this PC. While you type, the
 FPGA runs the Game of Life flat out in the background.
 
-Used by life_show.py (press `t`, or start it with --typing).
+Used by life_show.py (press `t`, or start it with --typing). With --vga the
+test is also on the VGA monitor.
 """
 import random
 import sys
 import time
 
 import numpy as np
+
+from vga_screen import CREAM, GREY, MAROON, ROSE
 
 # "serika dark", Monkeytype's default theme
 BG = (50, 52, 55)
@@ -161,34 +164,48 @@ class TypingTest:
             out.append(self.at(top - 1, left) + BOLD + fg(MAIN) + f'{int(remaining + 0.999)}' + R +
                        fg(SUB) + f'   {wpm_live:.0f} wpm')
         # words: 3 visible lines, current word on line 1 or 2
-        lines = self.layout(width)
-        cur_line = next(k for k, ln in enumerate(lines) if self.cur in ln)
-        first = max(0, cur_line - 1)
-        for k in range(3):
+        colours = {'text': TEXT, 'err': ERR, 'extra': ERR_EXTRA, 'sub': SUB}
+        for k, line in enumerate(self.visible(width)):
             row = top + 1 + k * 2
             out.append(self.at(row, 0) + '\x1b[K' + self.at(row, left))
-            if first + k >= len(lines):
-                continue
-            for i in lines[first + k]:
-                w = self.words[i]
-                t = self.typed[i] if i < len(self.typed) else ''
-                for j in range(max(len(w), len(t))):
-                    caret = i == self.cur and j == len(t)
-                    if j < len(t):
-                        c = (TEXT if j < len(w) and t[j] == w[j] else ERR if j < len(w) else ERR_EXTRA)
-                        ch = w[j] if j < len(w) else t[j]
-                    else:
-                        c, ch = SUB, w[j]
-                    if i < self.cur and j >= len(t):
-                        c = ERR                          # skipped letters
-                    out.append((bgc(MAIN) + fg(BG) if caret else fg(c)) + ch + R)
-                caret_space = i == self.cur and len(t) >= len(w)
-                out.append((bgc(MAIN) + ' ' + R) if caret_space else ' ')
+            for ch, kind, caret in line:
+                out.append((bgc(MAIN) + fg(BG) if caret else fg(colours[kind])) + ch + R)
         out.append(self.at(top + 8, left) + fg(SUB) + HELP + '\x1b[K')
         out.append(self.at(top + 10, left) + fg(SUB) +
                    'keys travel: keyboard → MAX3421E USB host → FPGA → USB → this PC' + '\x1b[K')
         sys.stdout.write(''.join(out))
         sys.stdout.flush()
+        if self.show.v:
+            vc = {'text': CREAM, 'err': ROSE, 'extra': MAROON, 'sub': GREY}
+            self.show.v.typing(self.duration, started, remaining, wpm_live,
+                               [[(ch, vc[kind], caret) for ch, kind, caret in line]
+                                for line in self.visible(64)])
+
+    def visible(self, width):
+        """The 3 lines of words on screen, the current word on line 1 or 2:
+        lists of (char, kind, caret), kind = text / err / extra / sub."""
+        lines = self.layout(width)
+        cur_line = next(k for k, ln in enumerate(lines) if self.cur in ln)
+        first = max(0, cur_line - 1)
+        out = []
+        for ln in lines[first:first + 3]:
+            row = []
+            for i in ln:
+                w = self.words[i]
+                t = self.typed[i] if i < len(self.typed) else ''
+                for j in range(max(len(w), len(t))):
+                    caret = i == self.cur and j == len(t)
+                    if j < len(t):
+                        kind = 'text' if j < len(w) and t[j] == w[j] else 'err' if j < len(w) else 'extra'
+                        ch = w[j] if j < len(w) else t[j]
+                    else:
+                        kind, ch = 'sub', w[j]
+                    if i < self.cur and j >= len(t):
+                        kind = 'err'                     # skipped letters
+                    row.append((ch, kind, caret))
+                row.append((' ', 'sub', i == self.cur and len(t) >= len(w)))
+            out.append(row)
+        return out
 
     # --------------------------------------------------------------- stats --
     def stats(self, elapsed):
@@ -271,9 +288,11 @@ class TypingTest:
         kbd = self.show.kbd
         if not (kbd and kbd.name):
             self.clear()
-            sys.stdout.write(self.at(self.s.lines // 2, 4) + fg(TEXT) +
-                             'Plug a keyboard into the board\'s USB-C port for the typing test.')
+            msg = 'Plug a keyboard into the board\'s USB-C port for the typing test.'
+            sys.stdout.write(self.at(self.s.lines // 2, 4) + fg(TEXT) + msg)
             sys.stdout.flush()
+            if self.show.v:
+                self.show.v.message([msg])
             time.sleep(3)
             return
         life = self.show.b
@@ -384,6 +403,8 @@ class TypingTest:
         o.append(self.at(chart_top + h + 6, left) + fg(SUB) + 'tab / SW2 next test    esc back to the demo')
         sys.stdout.write(''.join(o))
         sys.stdout.flush()
+        if self.show.v:
+            self.show.v.results(st, self.duration, self.per_sec, gens)
         self.rgb(0x40 if st['acc'] >= 95 else 0x20)
         btn_prev = True
         while True:
