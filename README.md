@@ -1,8 +1,8 @@
 # Icey
 
-![demo](assets/DEMO.gif)
+<img src="assets/DEMO.gif" alt="demo" width="720">
 
-![build](assets/BUILD.png)
+<img src="assets/BUILD.png" alt="build" height="468">
 
 an Uno-sized FPGA iCE40-UP5K board for learning!
 
